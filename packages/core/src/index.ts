@@ -1,6 +1,10 @@
 export { createFixedClock, systemClock } from './clock.js';
 export type { Clock } from './clock.js';
-export { assertPersistableClassification, parseClassification } from './classification.js';
+export {
+  assertPersistableClassification,
+  parseClassification,
+  tryParseClassification,
+} from './classification.js';
 export {
   DEFAULT_SEARCH_LIMIT,
   EMPLOYEE_AGENT_SCHEMA,

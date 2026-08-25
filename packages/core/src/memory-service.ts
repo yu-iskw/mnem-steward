@@ -105,20 +105,15 @@ async function rememberMemory(
     if (input.fact.trim() === '') {
       throw new MemoryDomainError('invalid_input', 'Memory fact must not be empty');
     }
-  } catch (error) {
-    await deny(deps, input.principal, 'remember', protocol, error);
-    throw error;
-  }
-  const persistable: RememberInput = {
-    ...input,
-    ttl: { expireAt: resolveExpireAt(input.kind, deps.clock.now(), input.ttl) },
-  };
-  try {
+    const persistable: RememberInput = {
+      ...input,
+      ttl: { expireAt: resolveExpireAt(input.kind, deps.clock.now(), input.ttl) },
+    };
     const stored = await deps.store.remember(persistable);
     await record(deps, input.principal, 'remember', 'allow', protocol, stored.id);
     return stored;
   } catch (error) {
-    if (isMemoryDomainError(error)) {
+    if (isMemoryDomainError(error) && error.code !== 'unavailable') {
       await deny(deps, input.principal, 'remember', protocol, error);
       throw error;
     }

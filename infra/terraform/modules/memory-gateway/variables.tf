@@ -22,3 +22,19 @@ variable "image" {
 variable "public_base_url" {
   type = string
 }
+
+variable "auth_jwks_url" {
+  type        = string
+  description = "JWKS URL for AUTH_MODE=jwks"
+}
+
+variable "reasoning_engine_id" {
+  type        = string
+  description = "Vertex AI Agent Engine (reasoning engine) id for Memory Bank"
+}
+
+variable "memory_bank_location" {
+  type        = string
+  description = "Memory Bank location (eu, us, or a region). Distinct from the Cloud Run region."
+  default     = "eu"
+}

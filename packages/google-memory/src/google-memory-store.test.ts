@@ -43,8 +43,13 @@ describe('google memory mapping', () => {
       ttl: { expireAt: '2026-08-26T12:00:00.000Z' },
     });
     expect(body['scope']).toEqual({ namespace: 'personal', principal_id: actor.id });
-    const source = body['directMemoriesSource'] as { directMemories: { expireTime: string }[] };
+    const source = body['directMemoriesSource'] as {
+      directMemories: { expireTime: string; fact: string }[];
+    };
     expect(source.directMemories[0]?.expireTime).toBe('2026-08-26T12:00:00.000Z');
+    expect(source.directMemories[0]?.fact).toBe(
+      'preference|internal: preferred_package_manager: pnpm',
+    );
     expect(memoryBankParent({ project: 'p', location: 'eu', reasoningEngineId: 'eng' })).toContain(
       'reasoningEngines/eng',
     );
@@ -110,7 +115,28 @@ describe('google memory mapping', () => {
     );
     expect(records?.[0]?.id).toBe('abc');
     expect(records?.[0]?.kind).toBe('preference');
+    expect(records?.[0]?.classification).toBe('internal');
     expect(records?.[0]?.fact).toBe('preferred_package_manager: pnpm');
+  });
+
+  it('preserves persistable classifications encoded in the stored fact', () => {
+    const records = parseRetrievedMemories(
+      {
+        retrievedMemories: [
+          {
+            memory: {
+              name: 'projects/p/locations/eu/reasoningEngines/eng/memories/abc',
+              fact: 'fact|confidential: restricted note',
+              scope: { namespace: 'personal', principal_id: actor.id },
+            },
+          },
+        ],
+      },
+      actor,
+    );
+    expect(records?.[0]?.classification).toBe('confidential');
+    expect(records?.[0]?.kind).toBe('fact');
+    expect(records?.[0]?.fact).toBe('restricted note');
   });
 
   it('drops memories owned by another principal', () => {
@@ -176,6 +202,7 @@ describe('google memory store with injected HTTP', () => {
       ttl: { expireAt: '2026-08-26T12:00:00.000Z' },
     });
     expect(remembered.fact).toBe('Uses Cloud Run');
+    expect(remembered.classification).toBe('internal');
     const found = await store.search({ principal: actor, context: 'personal', text: 'Cloud Run' });
     expect(found.status).toBe('ok');
     if (found.status === 'ok') {
@@ -206,6 +233,114 @@ describe('google memory store with injected HTTP', () => {
     await expect(store.history(remembered.id, bob)).rejects.toMatchObject({ code: 'not_found' });
     await expect(store.forget('..', actor)).rejects.toMatchObject({ code: 'invalid_input' });
     await expect(store.history('missing', actor)).rejects.toMatchObject({ code: 'not_found' });
+  });
+
+  it('filters Google search results by requested kind', async () => {
+    const store = createGoogleMemoryStore({
+      config: { project: 'p', location: 'eu', reasoningEngineId: 'eng' },
+      http: {
+        fetch() {
+          return Promise.resolve(
+            json({
+              retrievedMemories: [
+                {
+                  memory: {
+                    name: 'projects/p/locations/eu/reasoningEngines/eng/memories/mem1',
+                    fact: 'fact|internal: a fact',
+                    scope: { namespace: 'personal', principal_id: actor.id },
+                  },
+                },
+                {
+                  memory: {
+                    name: 'projects/p/locations/eu/reasoningEngines/eng/memories/mem2',
+                    fact: 'preference|internal: a preference',
+                    scope: { namespace: 'personal', principal_id: actor.id },
+                  },
+                },
+              ],
+            }),
+          );
+        },
+      },
+      tokens: {
+        getAccessToken() {
+          return Promise.resolve('token');
+        },
+      },
+    });
+    const found = await store.search({
+      principal: actor,
+      context: 'personal',
+      kind: 'preference',
+    });
+    expect(found.status).toBe('ok');
+    if (found.status === 'ok') {
+      expect(found.memories).toHaveLength(1);
+      expect(found.memories[0]?.kind).toBe('preference');
+    }
+  });
+
+  it('polls pending generate operations until they complete', async () => {
+    let operationGets = 0;
+    const store = createGoogleMemoryStore({
+      config: { project: 'p', location: 'eu', reasoningEngineId: 'eng' },
+      sleep: () => Promise.resolve(),
+      http: {
+        fetch(url: string, init?: RequestInit) {
+          const method = init?.method ?? 'GET';
+          if (url.endsWith(':generate') && method === 'POST') {
+            return Promise.resolve(
+              json({ name: 'projects/p/locations/eu/operations/op1', done: false }),
+            );
+          }
+          if (url.includes('/operations/op1') && method === 'GET') {
+            operationGets += 1;
+            if (operationGets < 2) {
+              return Promise.resolve(
+                json({ name: 'projects/p/locations/eu/operations/op1', done: false }),
+              );
+            }
+            return Promise.resolve(
+              json({
+                done: true,
+                generatedMemories: [
+                  {
+                    memory: {
+                      name: 'projects/p/locations/eu/reasoningEngines/eng/memories/mem1',
+                    },
+                  },
+                ],
+              }),
+            );
+          }
+          if (url.endsWith('/memories/mem1') && method === 'GET') {
+            return Promise.resolve(
+              json({
+                name: 'projects/p/locations/eu/reasoningEngines/eng/memories/mem1',
+                fact: 'fact|public: polled',
+                scope: { namespace: 'personal', principal_id: actor.id },
+              }),
+            );
+          }
+          return Promise.resolve(json({}, 404));
+        },
+      },
+      tokens: {
+        getAccessToken() {
+          return Promise.resolve('token');
+        },
+      },
+    });
+    const remembered = await store.remember({
+      principal: actor,
+      context: 'personal',
+      kind: 'fact',
+      classification: 'public',
+      fact: 'polled',
+    });
+    expect(operationGets).toBe(2);
+    expect(remembered.classification).toBe('public');
+    expect(remembered.fact).toBe('polled');
   });
 
   it('skips live configuration unless env is present', () => {

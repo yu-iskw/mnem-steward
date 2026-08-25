@@ -34,6 +34,22 @@ resource "google_cloud_run_v2_service" "gateway" {
         name  = "PUBLIC_BASE_URL"
         value = var.public_base_url
       }
+      env {
+        name  = "AUTH_JWKS_URL"
+        value = var.auth_jwks_url
+      }
+      env {
+        name  = "GOOGLE_CLOUD_PROJECT"
+        value = var.project_id
+      }
+      env {
+        name  = "GOOGLE_CLOUD_LOCATION"
+        value = var.memory_bank_location
+      }
+      env {
+        name  = "GOOGLE_REASONING_ENGINE_ID"
+        value = var.reasoning_engine_id
+      }
     }
   }
 }

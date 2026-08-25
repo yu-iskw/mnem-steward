@@ -2,10 +2,12 @@ import {
   DEFAULT_SEARCH_LIMIT,
   EMPLOYEE_AGENT_SCHEMA,
   toMemoryBankScope,
+  tryParseClassification,
   tryParseMemoryKind,
 } from '@enterprise-memory/core';
 
 import type {
+  Classification,
   MemoryRecord,
   MemoryRevision,
   MemorySearchQuery,
@@ -25,7 +27,7 @@ export function generateMemoriesBody(input: RememberInput): JsonObject {
     directMemoriesSource: {
       directMemories: [
         {
-          fact: `${input.kind}: ${input.fact}`,
+          fact: encodeStoredFact(input.kind, input.classification, input.fact),
           ...(expireTime === undefined ? {} : { expireTime }),
         },
       ],
@@ -105,7 +107,7 @@ export function parseMemoryResource(
     return undefined;
   }
   const id = name.split('/').at(-1) ?? name;
-  const { kind, text } = splitKindFact(fact);
+  const { kind, classification, text } = splitKindFact(fact);
   const expireAt = typeof memory['expireTime'] === 'string' ? memory['expireTime'] : undefined;
   const createdAt =
     typeof memory['createTime'] === 'string' ? memory['createTime'] : new Date(0).toISOString();
@@ -115,7 +117,7 @@ export function parseMemoryResource(
     kind,
     namespace: 'personal',
     principalId: principal.id,
-    classification: 'internal',
+    classification,
     fact: text,
     createdAt,
     updatedAt,
@@ -174,16 +176,45 @@ export function isObject(value: unknown): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function splitKindFact(fact: string): { kind: MemoryRecord['kind']; text: string } {
+function encodeStoredFact(
+  kind: MemoryRecord['kind'],
+  classification: Classification,
+  fact: string,
+): string {
+  return `${kind}|${classification}: ${fact}`;
+}
+
+function splitKindFact(fact: string): {
+  kind: MemoryRecord['kind'];
+  classification: Classification;
+  text: string;
+} {
   const separator = fact.indexOf(': ');
   if (separator <= 0) {
-    return { kind: 'fact', text: fact };
+    return { kind: 'fact', classification: 'internal', text: fact };
   }
-  const maybeKind = tryParseMemoryKind(fact.slice(0, separator));
-  if (maybeKind === undefined) {
-    return { kind: 'fact', text: fact };
+  const prefix = fact.slice(0, separator);
+  const pipe = prefix.indexOf('|');
+  if (pipe > 0) {
+    const kind = tryParseMemoryKind(prefix.slice(0, pipe));
+    const classification = persistableClassification(prefix.slice(pipe + 1));
+    if (kind !== undefined && classification !== undefined) {
+      return { kind, classification, text: fact.slice(separator + 2) };
+    }
   }
-  return { kind: maybeKind, text: fact.slice(separator + 2) };
+  const kind = tryParseMemoryKind(prefix);
+  if (kind === undefined) {
+    return { kind: 'fact', classification: 'internal', text: fact };
+  }
+  return { kind, classification: 'internal', text: fact.slice(separator + 2) };
+}
+
+function persistableClassification(value: string): Classification | undefined {
+  const parsed = tryParseClassification(value);
+  if (parsed === undefined || parsed === 'prohibited-for-memory') {
+    return undefined;
+  }
+  return parsed;
 }
 
 function memoryNameFrom(body: JsonObject): string | undefined {

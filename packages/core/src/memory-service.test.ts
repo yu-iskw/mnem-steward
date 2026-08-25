@@ -268,7 +268,7 @@ describe('MemoryService', () => {
   });
 
   it('rejects empty facts and unknown kinds, and honors explicit ttl', async () => {
-    const { memory } = service();
+    const { memory, audit } = service();
     const actor = principal();
     await expect(
       memory.remember({
@@ -300,6 +300,9 @@ describe('MemoryService', () => {
         ttl: { expireAt: 'never' },
       }),
     ).rejects.toMatchObject({ code: 'invalid_input' });
+    expect(
+      audit.events().some((event) => event.action === 'remember' && event.outcome === 'deny'),
+    ).toBe(true);
   });
 
   it('filters expired memories from search', async () => {

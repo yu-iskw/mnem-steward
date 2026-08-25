@@ -38,6 +38,7 @@ export function createGoogleMemoryStore(input: {
   config: GoogleMemoryConfig;
   http: HttpClient;
   tokens: AccessTokenProvider;
+  sleep?: (ms: number) => Promise<void>;
 }): MemoryStore {
   const parent = memoryBankParent(input.config);
   const base = memoryBankBaseUrl(input.config.location);
@@ -55,9 +56,13 @@ export function createGoogleMemoryStore(input: {
         if (memories === undefined) {
           return { status: 'unavailable', reason: STORE_UNAVAILABLE_REASON };
         }
+        const filtered =
+          query.kind === undefined
+            ? memories
+            : memories.filter((record) => record.kind === query.kind);
         return {
           status: 'ok',
-          memories,
+          memories: filtered,
           notice: UNTRUSTED_MEMORY_NOTICE,
         };
       } catch (error) {
@@ -152,21 +157,49 @@ function memoryResourceUrl(base: string, parent: string, id: MemoryId): string {
   return `${base}/v1beta1/${parent}/memories/${encodeURIComponent(assertMemoryId(id))}`;
 }
 
+const OPERATION_POLL_ATTEMPTS = 8;
+const OPERATION_POLL_DELAY_MS = 50;
+
 async function awaitOperation(
-  input: { http: HttpClient; tokens: AccessTokenProvider },
+  input: {
+    http: HttpClient;
+    tokens: AccessTokenProvider;
+    sleep?: (ms: number) => Promise<void>;
+  },
   base: string,
   operation: unknown,
 ): Promise<unknown> {
-  if (isObject(operation) && operation['done'] === true) {
-    return operation['response'] ?? operation;
+  if (isCompletedOperation(operation)) {
+    return completedOperationResult(operation);
   }
-  if (isObject(operation) && typeof operation['name'] === 'string') {
-    const body = await requestJson(input, 'GET', `${base}/v1beta1/${operation['name']}`);
-    if (isObject(body) && body['done'] === true) {
-      return body['response'] ?? body;
+  const name =
+    isObject(operation) && typeof operation['name'] === 'string' ? operation['name'] : undefined;
+  if (name === undefined) {
+    throw new MemoryDomainError('unavailable', STORE_UNAVAILABLE_REASON);
+  }
+  const sleep = input.sleep ?? defaultSleep;
+  for (let attempt = 0; attempt < OPERATION_POLL_ATTEMPTS; attempt += 1) {
+    await sleep(OPERATION_POLL_DELAY_MS);
+    const body = await requestJson(input, 'GET', `${base}/v1beta1/${name}`);
+    if (isCompletedOperation(body)) {
+      return completedOperationResult(body);
     }
   }
   throw new MemoryDomainError('unavailable', STORE_UNAVAILABLE_REASON);
+}
+
+function isCompletedOperation(value: unknown): boolean {
+  return isObject(value) && value['done'] === true;
+}
+
+function completedOperationResult(value: unknown): unknown {
+  return isObject(value) ? (value['response'] ?? value) : value;
+}
+
+function defaultSleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 async function requestJson(

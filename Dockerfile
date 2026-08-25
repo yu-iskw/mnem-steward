@@ -1,7 +1,7 @@
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
 RUN corepack enable
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages ./packages
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @enterprise-memory/core --filter @enterprise-memory/auth --filter @enterprise-memory/google-memory --filter @enterprise-memory/gateway build

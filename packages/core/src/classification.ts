@@ -10,8 +10,12 @@ const CLASSIFICATIONS: readonly Classification[] = [
   'prohibited-for-memory',
 ];
 
+export function tryParseClassification(value: string): Classification | undefined {
+  return CLASSIFICATIONS.find((item) => item === value);
+}
+
 export function parseClassification(value: string): Classification {
-  const match = CLASSIFICATIONS.find((item) => item === value);
+  const match = tryParseClassification(value);
   if (match === undefined) {
     throw new MemoryDomainError('invalid_input', `Unknown classification: ${value}`);
   }
