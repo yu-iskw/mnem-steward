@@ -1,6 +1,7 @@
 import {
   buildAuthorizationServerMetadata,
   buildProtectedResourceMetadata,
+  issueLocalAccessToken,
 } from '@enterprise-memory/auth';
 import { OAUTH_SCOPES, parseOAuthScopes } from '@enterprise-memory/core';
 
@@ -25,12 +26,11 @@ export function mountOauth(app: MemoryApp, deps: GatewayDeps): void {
     context.json(buildProtectedResourceMetadata({ resource: mcpResource, authorizationServers })),
   );
 
-  if (deps.env.authMode !== 'local' || deps.issueLocalAccessToken === undefined || deps.env.localJwtSecret === undefined) {
+  if (deps.env.authMode !== 'local' || deps.env.localJwtSecret === undefined) {
     return;
   }
 
   const secret = deps.env.localJwtSecret;
-  const issue = deps.issueLocalAccessToken;
 
   app.get('/.well-known/oauth-authorization-server', (context) =>
     context.json(
@@ -53,7 +53,7 @@ export function mountOauth(app: MemoryApp, deps: GatewayDeps): void {
       typeof body.scope === 'string' && body.scope.trim() !== ''
         ? parseOAuthScopes(body.scope)
         : [...OAUTH_SCOPES];
-    const accessToken = await issue({
+    const accessToken = await issueLocalAccessToken({
       secret,
       issuer: deps.env.tokenIssuer,
       audience: deps.env.tokenAudience,

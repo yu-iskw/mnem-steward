@@ -2,7 +2,10 @@ export { createFixedClock, systemClock } from './clock.js';
 export type { Clock } from './clock.js';
 export { assertPersistableClassification, parseClassification } from './classification.js';
 export {
+  DEFAULT_SEARCH_LIMIT,
   EMPLOYEE_AGENT_SCHEMA,
+  MAX_SEARCH_LIMIT,
+  normalizeSearchLimit,
   OAUTH_SCOPES,
   POLICY_VERSION,
   STORE_UNAVAILABLE_REASON,
@@ -10,6 +13,7 @@ export {
 } from './constants.js';
 export { isMemoryDomainError, MemoryDomainError } from './errors.js';
 export {
+  assertMemoryId,
   createMemoryId,
   createRandomIdGenerator,
   createSequenceIdGenerator,
@@ -25,15 +29,17 @@ export {
   assertScope,
   hasScope,
   isPersonalContext,
+  parseMemoryContext,
   parseMemoryKind,
   parseOAuthScopes,
   requiredScopeForAction,
+  tryParseMemoryKind,
 } from './policy.js';
 export type { AuditSink, MemoryStore } from './ports.js';
 export { parseProfileField } from './profile-fields.js';
 export { scanSecrets } from './scan-secrets.js';
 export { toMemoryBankScope } from './scope.js';
-export { isExpired, resolveExpireAt, ttlMsForKind } from './ttl.js';
+export { isExpired, parseTtl, resolveExpireAt, ttlMsForKind } from './ttl.js';
 export type {
   AuditEvent,
   CallContext,

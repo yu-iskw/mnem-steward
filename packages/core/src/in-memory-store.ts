@@ -1,4 +1,4 @@
-import { UNTRUSTED_MEMORY_NOTICE } from './constants.js';
+import { normalizeSearchLimit, UNTRUSTED_MEMORY_NOTICE } from './constants.js';
 import { MemoryDomainError } from './errors.js';
 import { parseProfileField } from './profile-fields.js';
 import { isExpired, resolveExpireAt } from './ttl.js';
@@ -19,9 +19,6 @@ import type {
   SearchOutcome,
 } from './types.js';
 
-const DEFAULT_SEARCH_LIMIT = 8;
-const MAX_SEARCH_LIMIT = 20;
-
 export function createInMemoryMemoryStore(deps: { clock: Clock; ids: IdGenerator }): MemoryStore {
   const records = new Map<MemoryId, MemoryRecord>();
   const revisions = new Map<MemoryId, MemoryRevision[]>();
@@ -30,7 +27,7 @@ export function createInMemoryMemoryStore(deps: { clock: Clock; ids: IdGenerator
   return {
     search(query: MemorySearchQuery): Promise<SearchOutcome> {
       const now = deps.clock.now();
-      const limit = normalizeLimit(query.limit);
+      const limit = normalizeSearchLimit(query.limit);
       const needle = query.text?.trim().toLowerCase() ?? '';
       const matches = [...records.values()].filter((record) => isVisible(record, query.principal, now));
       const kindFiltered = matches.filter((record) => query.kind === undefined || record.kind === query.kind);
@@ -106,13 +103,6 @@ export function createInMemoryMemoryStore(deps: { clock: Clock; ids: IdGenerator
       });
     },
   };
-}
-
-function normalizeLimit(limit: number | undefined): number {
-  if (limit === undefined || Number.isNaN(limit) || limit < 1) {
-    return DEFAULT_SEARCH_LIMIT;
-  }
-  return Math.min(Math.floor(limit), MAX_SEARCH_LIMIT);
 }
 
 function isVisible(record: MemoryRecord, principal: Principal, now: Date): boolean {

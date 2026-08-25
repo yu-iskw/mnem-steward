@@ -24,6 +24,14 @@ describe('parseEnv', () => {
         LOCAL_JWT_SECRET: 'local-dev-secret-at-least-32-bytes!',
       }),
     ).toThrow(/ALLOW_LOCAL_AUTH/);
+    expect(() =>
+      parseEnv({
+        PUBLIC_BASE_URL: 'https://mylocalhost.example',
+        AUTH_MODE: 'local',
+        MEMORY_STORE: 'in-memory',
+        LOCAL_JWT_SECRET: 'local-dev-secret-at-least-32-bytes!',
+      }),
+    ).toThrow(/ALLOW_LOCAL_AUTH|localhost/);
   });
 
   it('requires jwks url in jwks mode', () => {

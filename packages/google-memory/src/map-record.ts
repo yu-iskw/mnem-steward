@@ -1,4 +1,9 @@
-import { EMPLOYEE_AGENT_SCHEMA, toMemoryBankScope } from '@enterprise-memory/core';
+import {
+  DEFAULT_SEARCH_LIMIT,
+  EMPLOYEE_AGENT_SCHEMA,
+  toMemoryBankScope,
+  tryParseMemoryKind,
+} from '@enterprise-memory/core';
 
 import type {
   MemoryRecord,
@@ -9,32 +14,39 @@ import type {
   RememberInput,
 } from '@enterprise-memory/core';
 
-type JsonObject = { readonly [key: string]: unknown };
+export type JsonObject = { readonly [key: string]: unknown };
 
 export function generateMemoriesBody(input: RememberInput): JsonObject {
   const scope = toMemoryBankScope(input.context, input.principal);
+  const expireTime = input.ttl !== undefined && 'expireAt' in input.ttl ? input.ttl.expireAt : undefined;
   return {
     scope,
     directMemoriesSource: {
-      directMemories: [{ fact: `${input.kind}: ${input.fact}` }],
+      directMemories: [
+        {
+          fact: `${input.kind}: ${input.fact}`,
+          ...(expireTime === undefined ? {} : { expireTime }),
+        },
+      ],
     },
   };
 }
 
 export function retrieveMemoriesBody(query: MemorySearchQuery): JsonObject {
   const scope = toMemoryBankScope(query.context, query.principal);
+  const limit = query.limit ?? DEFAULT_SEARCH_LIMIT;
   if (query.text !== undefined && query.text.trim() !== '') {
     return {
       scope,
       similaritySearchParams: {
         searchQuery: query.text,
-        topK: query.limit ?? 8,
+        topK: limit,
       },
     };
   }
   return {
     scope,
-    simpleRetrievalParams: { pageSize: query.limit ?? 8 },
+    simpleRetrievalParams: { pageSize: limit },
   };
 }
 
@@ -57,9 +69,12 @@ export function parseGeneratedMemoryName(body: unknown): string | undefined {
   return memoryNameFrom(body);
 }
 
-export function parseRetrievedMemories(body: unknown, principal: Principal): MemoryRecord[] {
+export function parseRetrievedMemories(
+  body: unknown,
+  principal: Principal,
+): MemoryRecord[] | undefined {
   if (!isObject(body) || !Array.isArray(body['retrievedMemories'])) {
-    return [];
+    return undefined;
   }
   const records: MemoryRecord[] = [];
   for (const item of body['retrievedMemories']) {
@@ -81,6 +96,10 @@ export function parseMemoryResource(memory: JsonObject, principal: Principal): M
   if (typeof name !== 'string' || typeof fact !== 'string') {
     return undefined;
   }
+  const owner = ownerFromMemory(memory);
+  if (owner !== undefined && owner !== principal.id) {
+    return undefined;
+  }
   const id = name.split('/').at(-1) ?? name;
   const { kind, text } = splitKindFact(fact);
   const expireAt = typeof memory['expireTime'] === 'string' ? memory['expireTime'] : undefined;
@@ -97,6 +116,11 @@ export function parseMemoryResource(memory: JsonObject, principal: Principal): M
     updatedAt,
     expireAt,
   };
+}
+
+export function ownerFromMemory(memory: JsonObject): string | undefined {
+  const scope = isObject(memory['scope']) ? memory['scope'] : undefined;
+  return scope !== undefined && typeof scope['principal_id'] === 'string' ? scope['principal_id'] : undefined;
 }
 
 export function parseRevisions(body: unknown, memoryId: string): MemoryRevision[] {
@@ -136,27 +160,20 @@ export function parseProfile(body: unknown, principal: Principal): ProfileOutcom
   };
 }
 
+export function isObject(value: unknown): value is JsonObject {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function splitKindFact(fact: string): { kind: MemoryRecord['kind']; text: string } {
   const separator = fact.indexOf(': ');
   if (separator <= 0) {
     return { kind: 'fact', text: fact };
   }
-  const maybeKind = fact.slice(0, separator);
-  const kinds: readonly MemoryRecord['kind'][] = [
-    'identity',
-    'preference',
-    'fact',
-    'procedure',
-    'episode',
-    'relationship',
-    'constraint',
-    'working',
-  ];
-  const kind = kinds.find((item) => item === maybeKind);
-  if (kind === undefined) {
+  const maybeKind = tryParseMemoryKind(fact.slice(0, separator));
+  if (maybeKind === undefined) {
     return { kind: 'fact', text: fact };
   }
-  return { kind, text: fact.slice(separator + 2) };
+  return { kind: maybeKind, text: fact.slice(separator + 2) };
 }
 
 function memoryNameFrom(body: JsonObject): string | undefined {
@@ -165,8 +182,4 @@ function memoryNameFrom(body: JsonObject): string | undefined {
     return parseGeneratedMemoryName(response);
   }
   return undefined;
-}
-
-function isObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

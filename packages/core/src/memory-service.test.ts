@@ -66,6 +66,12 @@ describe('scanSecrets', () => {
       expect(aws.rule).toBe('aws-access-key');
     }
     expect(scanSecrets('token ghp_abcdefghijklmnopqrstuvwxyz012345').hit).toBe(true);
+    expect(scanSecrets('aws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY').hit).toBe(true);
+    expect(scanSecrets('sk-ant-api03-abcdefghijklmnopqrstuvwxyz').hit).toBe(true);
+    expect(scanSecrets('Bearer ya29.a0AfH6SMCabcdefghijklmnopqrst').hit).toBe(true);
+    expect(
+      scanSecrets(['https://hooks.slack.com/services', 'T00', 'B00', 'exampletoken'].join('/')).hit,
+    ).toBe(true);
   });
 });
 
@@ -264,6 +270,17 @@ describe('MemoryService', () => {
     });
     expect(stored.expireAt).toBe('2026-08-25T12:01:00.000Z');
     await expect(memory.history('missing', actor)).rejects.toMatchObject({ code: 'not_found' });
+    await expect(memory.forget('..', actor)).rejects.toMatchObject({ code: 'invalid_input' });
+    await expect(
+      memory.remember({
+        principal: actor,
+        context: 'personal',
+        kind: 'working',
+        classification: 'internal',
+        fact: 'never expires',
+        ttl: { expireAt: 'never' },
+      }),
+    ).rejects.toMatchObject({ code: 'invalid_input' });
   });
 
   it('filters expired memories from search', async () => {

@@ -40,12 +40,26 @@ export function assertPersonalContext(context: MemoryContext): void {
   }
 }
 
+export function tryParseMemoryKind(value: string): MemoryKind | undefined {
+  return MEMORY_KINDS.find((kind) => kind === value);
+}
+
 export function parseMemoryKind(value: string): MemoryKind {
-  const match = MEMORY_KINDS.find((kind) => kind === value);
+  const match = tryParseMemoryKind(value);
   if (match === undefined) {
     throw new MemoryDomainError('invalid_input', `Unknown memory kind: ${value}`);
   }
   return match;
+}
+
+export function parseMemoryContext(value: unknown): MemoryContext {
+  if (value === undefined || value === 'personal') {
+    return 'personal';
+  }
+  if (value === 'current_project') {
+    return 'current_project';
+  }
+  throw new MemoryDomainError('invalid_input', 'context must be personal or current_project');
 }
 
 export function parseOAuthScopes(scopeClaim: string | undefined): OAuthScope[] {

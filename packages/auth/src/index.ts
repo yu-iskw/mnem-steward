@@ -1,4 +1,4 @@
-import { MemoryDomainError, parseOAuthScopes, principalIdFromOidc } from '@enterprise-memory/core';
+import { MemoryDomainError, OAUTH_SCOPES, parseOAuthScopes, principalIdFromOidc } from '@enterprise-memory/core';
 import { createRemoteJWKSet, jwtVerify, SignJWT } from 'jose';
 
 import type { OAuthScope, Principal } from '@enterprise-memory/core';
@@ -7,7 +7,6 @@ export type LocalIssuerConfig = {
   readonly secret: Uint8Array;
   readonly issuer: string;
   readonly audience: string;
-  readonly expiresInSeconds?: number;
 };
 
 export type TokenVerifier = {
@@ -37,24 +36,11 @@ export async function issueLocalAccessToken(input: {
 }
 
 export function createLocalHs256Verifier(config: LocalIssuerConfig): TokenVerifier {
-  return {
-    async verify(authorizationHeader: string | undefined): Promise<Principal> {
-      const token = bearerToken(authorizationHeader);
-      try {
-        const { payload } = await jwtVerify(token, config.secret, {
-          issuer: config.issuer,
-          audience: config.audience,
-          algorithms: ['HS256'],
-        });
-        return principalFromPayload(payload.iss ?? config.issuer, payload.sub, payload['scope']);
-      } catch (error) {
-        if (error instanceof MemoryDomainError) {
-          throw error;
-        }
-        throw new MemoryDomainError('unauthenticated', 'Access token is invalid');
-      }
-    },
-  };
+  return createJwtVerifier(config.secret, {
+    issuer: config.issuer,
+    audience: config.audience,
+    algorithms: ['HS256'],
+  });
 }
 
 export function createRemoteJwksVerifier(input: {
@@ -62,24 +48,10 @@ export function createRemoteJwksVerifier(input: {
   issuer: string;
   audience: string;
 }): TokenVerifier {
-  const jwks = createRemoteJWKSet(new URL(input.jwksUrl));
-  return {
-    async verify(authorizationHeader: string | undefined): Promise<Principal> {
-      const token = bearerToken(authorizationHeader);
-      try {
-        const { payload } = await jwtVerify(token, jwks, {
-          issuer: input.issuer,
-          audience: input.audience,
-        });
-        return principalFromPayload(payload.iss ?? input.issuer, payload.sub, payload['scope']);
-      } catch (error) {
-        if (error instanceof MemoryDomainError) {
-          throw error;
-        }
-        throw new MemoryDomainError('unauthenticated', 'Access token is invalid');
-      }
-    },
-  };
+  return createJwtVerifier(createRemoteJWKSet(new URL(input.jwksUrl)), {
+    issuer: input.issuer,
+    audience: input.audience,
+  });
 }
 
 export function buildProtectedResourceMetadata(input: {
@@ -95,13 +67,7 @@ export function buildProtectedResourceMetadata(input: {
     resource: input.resource,
     authorization_servers: input.authorizationServers,
     bearer_methods_supported: ['header'],
-    scopes_supported: [
-      'memory.read',
-      'memory.write',
-      'memory.delete',
-      'memory.profile.read',
-      'memory.history.read',
-    ],
+    scopes_supported: OAUTH_SCOPES,
   };
 }
 
@@ -120,13 +86,27 @@ export function buildAuthorizationServerMetadata(input: {
     token_endpoint: input.tokenEndpoint,
     grant_types_supported: ['client_credentials'],
     token_endpoint_auth_methods_supported: ['none'],
-    scopes_supported: [
-      'memory.read',
-      'memory.write',
-      'memory.delete',
-      'memory.profile.read',
-      'memory.history.read',
-    ],
+    scopes_supported: OAUTH_SCOPES,
+  };
+}
+
+function createJwtVerifier(
+  key: Parameters<typeof jwtVerify>[1],
+  options: { issuer: string; audience: string; algorithms?: string[] },
+): TokenVerifier {
+  return {
+    async verify(authorizationHeader: string | undefined): Promise<Principal> {
+      const token = bearerToken(authorizationHeader);
+      try {
+        const { payload } = await jwtVerify(token, key, options);
+        return principalFromPayload(payload.iss ?? options.issuer, payload.sub, payload['scope']);
+      } catch (error) {
+        if (error instanceof MemoryDomainError) {
+          throw error;
+        }
+        throw new MemoryDomainError('unauthenticated', 'Access token is invalid');
+      }
+    },
   };
 }
 

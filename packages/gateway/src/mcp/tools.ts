@@ -1,12 +1,18 @@
 import {
+  EMPLOYEE_AGENT_SCHEMA,
   MemoryDomainError,
   parseClassification,
   parseMemoryKind,
+  parseTtl,
   POLICY_VERSION,
   UNTRUSTED_MEMORY_NOTICE,
 } from '@enterprise-memory/core';
 
-import type { MemoryContext, MemoryService, Principal } from '@enterprise-memory/core';
+import { asObject, optionalKind, optionalNumber, optionalString, parseContext, requiredString } from '../parse-memory-input.js';
+
+import type { MemoryService, Principal } from '@enterprise-memory/core';
+
+const PROFILE_RESOURCE_URI = `memory://profiles/${EMPLOYEE_AGENT_SCHEMA}`;
 
 export const MCP_TOOLS = [
   {
@@ -68,7 +74,7 @@ export const MCP_TOOLS = [
 export const MCP_RESOURCES = [
   { uri: 'memory://policy', name: 'Memory policy', mimeType: 'application/json' },
   { uri: 'memory://namespaces', name: 'Namespaces', mimeType: 'application/json' },
-  { uri: 'memory://profiles/employee-agent', name: 'Employee agent profile schema', mimeType: 'application/json' },
+  { uri: PROFILE_RESOURCE_URI, name: 'Employee agent profile schema', mimeType: 'application/json' },
 ] as const;
 
 type ToolName =
@@ -91,10 +97,10 @@ export async function callMemoryTool(
       return memory.search(
         {
           principal,
-          context: asContext(record['context']),
-          text: asOptionalString(record['text']),
+          context: parseContext(record['context']),
+          text: optionalString(record['text']),
           kind: optionalKind(record['kind']),
-          limit: asOptionalNumber(record['limit']),
+          limit: optionalNumber(record['limit']),
         },
         { protocol: 'mcp' },
       );
@@ -102,20 +108,21 @@ export async function callMemoryTool(
       return memory.remember(
         {
           principal,
-          context: asContext(record['context']),
-          kind: parseMemoryKind(asRequiredString(record['kind'], 'kind')),
-          classification: parseClassification(asRequiredString(record['classification'], 'classification')),
-          fact: asRequiredString(record['fact'], 'fact'),
+          context: parseContext(record['context']),
+          kind: parseMemoryKind(requiredString(record['kind'], 'kind')),
+          classification: parseClassification(requiredString(record['classification'], 'classification')),
+          fact: requiredString(record['fact'], 'fact'),
+          ttl: parseTtl(record['ttl']),
         },
         { protocol: 'mcp' },
       );
     case 'memory_forget':
-      await memory.forget(asRequiredString(record['id'], 'id'), principal, { protocol: 'mcp' });
+      await memory.forget(requiredString(record['id'], 'id'), principal, { protocol: 'mcp' });
       return { deleted: true };
     case 'memory_history':
-      return memory.history(asRequiredString(record['id'], 'id'), principal, { protocol: 'mcp' });
+      return memory.history(requiredString(record['id'], 'id'), principal, { protocol: 'mcp' });
     case 'memory_profile_get':
-      return memory.getProfile('employee-agent', principal, { protocol: 'mcp' });
+      return memory.getProfile(EMPLOYEE_AGENT_SCHEMA, principal, { protocol: 'mcp' });
     default: {
       const exhaustive: never = toolName;
       return exhaustive;
@@ -137,9 +144,9 @@ export function readMemoryResource(uri: string): unknown {
         namespaces: ['personal', 'project', 'team', 'application', 'organization'],
         eligible: ['personal'],
       };
-    case 'memory://profiles/employee-agent':
+    case PROFILE_RESOURCE_URI:
       return {
-        schema: 'employee-agent',
+        schema: EMPLOYEE_AGENT_SCHEMA,
         fields: 'Preference and identity facts matching key: value are stored as profile fields.',
       };
     default:
@@ -158,40 +165,4 @@ function asToolName(name: string): ToolName {
     default:
       throw new MemoryDomainError('invalid_input', `Unknown tool ${name}`);
   }
-}
-
-function asObject(value: unknown): Record<string, unknown> {
-  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
-  }
-  return {};
-}
-
-function asContext(value: unknown): MemoryContext {
-  if (value === undefined || value === 'personal') {
-    return 'personal';
-  }
-  if (value === 'current_project') {
-    return 'current_project';
-  }
-  throw new MemoryDomainError('invalid_input', 'context must be personal or current_project');
-}
-
-function asOptionalString(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined;
-}
-
-function asOptionalNumber(value: unknown): number | undefined {
-  return typeof value === 'number' ? value : undefined;
-}
-
-function asRequiredString(value: unknown, field: string): string {
-  if (typeof value !== 'string' || value.trim() === '') {
-    throw new MemoryDomainError('invalid_input', `Missing ${field}`);
-  }
-  return value;
-}
-
-function optionalKind(value: unknown) {
-  return typeof value === 'string' ? parseMemoryKind(value) : undefined;
 }

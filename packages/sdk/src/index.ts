@@ -1,3 +1,5 @@
+import { EMPLOYEE_AGENT_SCHEMA } from '@enterprise-memory/core';
+
 import type {
   HistoryOutcome,
   MemoryRecord,
@@ -57,9 +59,6 @@ export function createMemoryClient(input: {
 
   async function json<T>(path: string, init: RequestInit): Promise<T> {
     const response = await request(path, init);
-    if (response.status === 204) {
-      return undefined as T;
-    }
     const body: unknown = await response.json();
     if (!response.ok) {
       const errorBody = asObject(body);
@@ -84,12 +83,20 @@ export function createMemoryClient(input: {
       });
     },
     async forget(id) {
-      await json(`/v1/memories/${id}`, { method: 'DELETE' });
+      const response = await request(`/v1/memories/${id}`, { method: 'DELETE' });
+      if (response.status === 204) {
+        return;
+      }
+      const body: unknown = await response.json();
+      const errorBody = asObject(body);
+      const code = typeof errorBody['error'] === 'string' ? errorBody['error'] : 'http_error';
+      const message = typeof errorBody['message'] === 'string' ? errorBody['message'] : response.statusText;
+      throw new MemoryClientError(response.status, code, message);
     },
     history(id) {
       return json<HistoryOutcome>(`/v1/memories/${id}/history`, { method: 'GET' });
     },
-    getProfile(schema = 'employee-agent') {
+    getProfile(schema = EMPLOYEE_AGENT_SCHEMA) {
       return json<ProfileOutcome>(`/v1/profiles/${schema}`, { method: 'GET' });
     },
   };

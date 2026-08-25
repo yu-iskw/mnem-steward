@@ -1,10 +1,11 @@
 import { isMemoryDomainError } from '@enterprise-memory/core';
 import { Hono } from 'hono';
 
+import { domainErrorStatus } from './http-error.js';
 import { requireAuth, wwwAuthenticate } from './middleware/require-auth.js';
 import { mountMcp } from './routes/mcp.js';
 import { mountOauth } from './routes/oauth.js';
-import { domainErrorStatus, mountRest } from './routes/rest.js';
+import { mountRest } from './routes/rest.js';
 
 import type { AppEnv } from './app-env.js';
 import type { GatewayDeps } from './create-deps.js';
@@ -25,8 +26,8 @@ export function createApp(deps: GatewayDeps): Hono<AppEnv> {
 
   app.get('/healthz', (context) => context.json({ status: 'ok' }));
   mountOauth(app, deps);
-  app.use('/v1/*', requireAuth(deps.verifier, deps.env.publicBaseUrl));
-  app.use('/mcp', requireAuth(deps.verifier, deps.env.publicBaseUrl));
+  app.use('/v1/*', requireAuth(deps.verifier));
+  app.use('/mcp', requireAuth(deps.verifier));
   mountRest(app, deps.memory);
   mountMcp(app, deps.memory);
   return app;

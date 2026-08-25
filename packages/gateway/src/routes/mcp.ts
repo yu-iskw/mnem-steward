@@ -1,9 +1,9 @@
 import { isMemoryDomainError } from '@enterprise-memory/core';
 
+import { domainErrorStatus } from '../http-error.js';
 import { isNotification, jsonRpcError, jsonRpcResult, parseJsonRpc } from '../mcp/json-rpc.js';
 import { callMemoryTool, MCP_RESOURCES, MCP_TOOLS, readMemoryResource } from '../mcp/tools.js';
-
-import { domainErrorStatus } from './rest.js';
+import { asObject } from '../parse-memory-input.js';
 
 import type { MemoryApp } from '../app-env.js';
 import type { JsonRpcRequest } from '../mcp/json-rpc.js';
@@ -37,9 +37,6 @@ export function mountMcp(app: MemoryApp, memory: MemoryService): void {
     }
 
     if (isNotification(parsed)) {
-      if (parsed.method === 'notifications/initialized') {
-        return context.body(null, 202);
-      }
       return context.body(null, 202);
     }
 
@@ -89,7 +86,7 @@ async function dispatch(
     case 'tools/list':
       return { tools: MCP_TOOLS, ttlMs: 60_000, cacheScope: 'user' };
     case METHOD_TOOLS_CALL: {
-      const params = asRecord(request.params);
+      const params = asObject(request.params);
       const name = params['name'];
       if (typeof name !== 'string') {
         throw new Error('tools/call requires name');
@@ -104,7 +101,7 @@ async function dispatch(
     case 'resources/list':
       return { resources: MCP_RESOURCES, ttlMs: 60_000, cacheScope: 'user' };
     case METHOD_RESOURCES_READ: {
-      const params = asRecord(request.params);
+      const params = asObject(request.params);
       const uri = params['uri'];
       if (typeof uri !== 'string') {
         throw new Error('resources/read requires uri');
@@ -135,20 +132,13 @@ function validate2026Headers(
   }
   if (request.method === METHOD_TOOLS_CALL || request.method === METHOD_RESOURCES_READ) {
     const name = header('Mcp-Name');
-    const params = asRecord(request.params);
+    const params = asObject(request.params);
     const expected = request.method === METHOD_TOOLS_CALL ? params['name'] : params['uri'];
     if (name === undefined || name !== expected) {
       return 'Mcp-Name header is required and must match params.name or params.uri';
     }
   }
   return undefined;
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
-  }
-  return {};
 }
 
 function isAllowedOrigin(origin: string, requestUrl: string): boolean {

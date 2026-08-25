@@ -1,8 +1,10 @@
 import { assertPersistableClassification } from './classification.js';
-import { STORE_UNAVAILABLE_REASON, UNTRUSTED_MEMORY_NOTICE } from './constants.js';
+import { normalizeSearchLimit, STORE_UNAVAILABLE_REASON, UNTRUSTED_MEMORY_NOTICE } from './constants.js';
 import { isMemoryDomainError, MemoryDomainError } from './errors.js';
+import { assertMemoryId } from './ids.js';
 import { assertPersonalContext, assertScope } from './policy.js';
 import { scanSecrets } from './scan-secrets.js';
+import { resolveExpireAt } from './ttl.js';
 
 import type { Clock } from './clock.js';
 import type { AuditSink, MemoryStore } from './ports.js';
@@ -64,7 +66,10 @@ async function searchMemories(
     throw error;
   }
   try {
-    const outcome = await deps.store.search(query);
+    const outcome = await deps.store.search({
+      ...query,
+      limit: normalizeSearchLimit(query.limit),
+    });
     if (outcome.status === 'unavailable') {
       await record(deps, query.principal, 'search', 'unavailable', protocol);
       return outcome;
@@ -100,21 +105,17 @@ async function rememberMemory(
     await deny(deps, input.principal, 'remember', protocol, error);
     throw error;
   }
+  const persistable: RememberInput = {
+    ...input,
+    ttl: { expireAt: resolveExpireAt(input.kind, deps.clock.now(), input.ttl) },
+  };
   try {
-    const record = await deps.store.remember(input);
-    await recordAudit(deps, {
-      timestamp: deps.clock.now().toISOString(),
-      actor: input.principal.id,
-      action: 'remember',
-      outcome: 'allow',
-      namespace: 'personal',
-      memoryId: record.id,
-      protocol,
-    });
-    return record;
+    const stored = await deps.store.remember(persistable);
+    await record(deps, input.principal, 'remember', 'allow', protocol, stored.id);
+    return stored;
   } catch (error) {
     if (isMemoryDomainError(error)) {
-      await deny(deps, input.principal, 'remember', protocol, error, undefined);
+      await deny(deps, input.principal, 'remember', protocol, error);
       throw error;
     }
     await deny(
@@ -136,21 +137,14 @@ async function forgetMemory(
 ): Promise<void> {
   try {
     assertScope(principal, 'forget');
+    assertMemoryId(id);
   } catch (error) {
     await deny(deps, principal, 'forget', protocol, error);
     throw error;
   }
   try {
     await deps.store.forget(id, principal);
-    await recordAudit(deps, {
-      timestamp: deps.clock.now().toISOString(),
-      actor: principal.id,
-      action: 'forget',
-      outcome: 'allow',
-      namespace: 'personal',
-      memoryId: id,
-      protocol,
-    });
+    await record(deps, principal, 'forget', 'allow', protocol, id);
   } catch (error) {
     await deny(deps, principal, 'forget', protocol, error, id);
     if (isMemoryDomainError(error)) {
@@ -168,6 +162,7 @@ async function historyOf(
 ): Promise<HistoryOutcome> {
   try {
     assertScope(principal, 'history');
+    assertMemoryId(id);
   } catch (error) {
     await deny(deps, principal, 'history', protocol, error, id);
     throw error;
@@ -229,15 +224,7 @@ async function deny(
   memoryId?: MemoryId,
 ): Promise<void> {
   const outcome = isMemoryDomainError(error) && error.code === 'unavailable' ? 'unavailable' : 'deny';
-  await recordAudit(deps, {
-    timestamp: deps.clock.now().toISOString(),
-    actor: principal.id,
-    action,
-    outcome,
-    namespace: 'personal',
-    memoryId,
-    protocol,
-  });
+  await record(deps, principal, action, outcome, protocol, memoryId);
 }
 
 async function record(
@@ -248,7 +235,7 @@ async function record(
   protocol: Protocol,
   memoryId?: MemoryId,
 ): Promise<void> {
-  await recordAudit(deps, {
+  await deps.audit.record({
     timestamp: deps.clock.now().toISOString(),
     actor: principal.id,
     action,
@@ -257,8 +244,4 @@ async function record(
     memoryId,
     protocol,
   });
-}
-
-async function recordAudit(deps: { audit: AuditSink }, event: AuditEvent): Promise<void> {
-  await deps.audit.record(event);
 }

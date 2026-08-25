@@ -5,6 +5,7 @@ export {
   memoryBankParent,
 } from './config.js';
 export type { AccessTokenProvider, GoogleMemoryConfig, HttpClient } from './config.js';
+export { createAccessTokenProvider } from './access-token.js';
 export { createGoogleMemoryStore } from './google-memory-store.js';
 export {
   generateMemoriesBody,

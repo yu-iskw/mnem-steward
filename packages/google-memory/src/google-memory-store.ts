@@ -1,4 +1,6 @@
 import {
+  assertMemoryId,
+  isMemoryDomainError,
   MemoryDomainError,
   STORE_UNAVAILABLE_REASON,
   UNTRUSTED_MEMORY_NOTICE,
@@ -7,6 +9,8 @@ import {
 import { memoryBankBaseUrl, memoryBankParent } from './config.js';
 import {
   generateMemoriesBody,
+  isObject,
+  ownerFromMemory,
   parseGeneratedMemoryName,
   parseMemoryResource,
   parseProfile,
@@ -41,13 +45,25 @@ export function createGoogleMemoryStore(input: {
   return {
     async search(query: MemorySearchQuery): Promise<SearchOutcome> {
       try {
-        const body = await requestJson(input, 'POST', `${base}/v1beta1/${parent}/memories:retrieve`, retrieveMemoriesBody(query));
+        const body = await requestJson(
+          input,
+          'POST',
+          `${base}/v1beta1/${parent}/memories:retrieve`,
+          retrieveMemoriesBody(query),
+        );
+        const memories = parseRetrievedMemories(body, query.principal);
+        if (memories === undefined) {
+          return { status: 'unavailable', reason: STORE_UNAVAILABLE_REASON };
+        }
         return {
           status: 'ok',
-          memories: parseRetrievedMemories(body, query.principal),
+          memories,
           notice: UNTRUSTED_MEMORY_NOTICE,
         };
-      } catch {
+      } catch (error) {
+        if (isMemoryDomainError(error) && error.code !== 'unavailable') {
+          throw error;
+        }
         return { status: 'unavailable', reason: STORE_UNAVAILABLE_REASON };
       }
     },
@@ -72,17 +88,20 @@ export function createGoogleMemoryStore(input: {
       return parsed;
     },
 
-    async forget(id: MemoryId, _principal: Principal): Promise<void> {
-      const name = `${parent}/memories/${id}`;
-      await requestJson(input, 'DELETE', `${base}/v1beta1/${name}`);
+    async forget(id: MemoryId, principal: Principal): Promise<void> {
+      await requireOwnedMemory(input, base, parent, id, principal);
+      await requestJson(input, 'DELETE', memoryResourceUrl(base, parent, id));
     },
 
-    async history(id: MemoryId, _principal: Principal): Promise<HistoryOutcome> {
+    async history(id: MemoryId, principal: Principal): Promise<HistoryOutcome> {
       try {
-        const name = `${parent}/memories/${id}`;
-        const body = await requestJson(input, 'GET', `${base}/v1beta1/${name}/revisions`);
+        await requireOwnedMemory(input, base, parent, id, principal);
+        const body = await requestJson(input, 'GET', `${memoryResourceUrl(base, parent, id)}/revisions`);
         return { status: 'ok', revisions: parseRevisions(body, id) };
-      } catch {
+      } catch (error) {
+        if (isMemoryDomainError(error)) {
+          throw error;
+        }
         return { status: 'unavailable', reason: STORE_UNAVAILABLE_REASON };
       }
     },
@@ -100,11 +119,31 @@ export function createGoogleMemoryStore(input: {
           return { ...parsed, notice: UNTRUSTED_MEMORY_NOTICE };
         }
         return parsed;
-      } catch {
+      } catch (error) {
+        if (isMemoryDomainError(error) && error.code !== 'unavailable') {
+          throw error;
+        }
         return { status: 'unavailable', reason: STORE_UNAVAILABLE_REASON };
       }
     },
   };
+}
+
+async function requireOwnedMemory(
+  input: { http: HttpClient; tokens: AccessTokenProvider },
+  base: string,
+  parent: string,
+  id: MemoryId,
+  principal: Principal,
+): Promise<void> {
+  const resource = await requestJson(input, 'GET', memoryResourceUrl(base, parent, id));
+  if (!isObject(resource) || ownerFromMemory(resource) !== principal.id) {
+    throw new MemoryDomainError('not_found', 'Memory not found');
+  }
+}
+
+function memoryResourceUrl(base: string, parent: string, id: MemoryId): string {
+  return `${base}/v1beta1/${parent}/memories/${encodeURIComponent(assertMemoryId(id))}`;
 }
 
 async function awaitOperation(
@@ -150,9 +189,5 @@ async function requestJson(
   if (response.status === 204) {
     return {};
   }
-  return (await response.json());
-}
-
-function isObject(value: unknown): value is { readonly [key: string]: unknown } {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  return response.json();
 }

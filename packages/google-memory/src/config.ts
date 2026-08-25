@@ -27,13 +27,14 @@ export function isGoogleMemoryConfigured(
 }
 
 export function googleMemoryConfigFromEnv(env: Record<string, string | undefined>): GoogleMemoryConfig {
-  const project = env['GOOGLE_CLOUD_PROJECT'];
-  const location = env['GOOGLE_CLOUD_LOCATION'];
-  const reasoningEngineId = env['GOOGLE_REASONING_ENGINE_ID'];
-  if (!nonEmpty(project) || !nonEmpty(location) || !nonEmpty(reasoningEngineId)) {
+  if (!isGoogleMemoryConfigured(env)) {
     throw new Error('Google Memory Bank env is incomplete');
   }
-  return { project, location, reasoningEngineId };
+  return {
+    project: env.GOOGLE_CLOUD_PROJECT,
+    location: env.GOOGLE_CLOUD_LOCATION,
+    reasoningEngineId: env.GOOGLE_REASONING_ENGINE_ID,
+  };
 }
 
 export function memoryBankParent(config: GoogleMemoryConfig): string {

@@ -83,8 +83,17 @@ function encodeSecret(secret: string): Uint8Array {
 }
 
 function assertLocalAuthAllowed(publicBaseUrl: string, allow: string | undefined): void {
-  const httpsProduction = publicBaseUrl.startsWith('https://') && !publicBaseUrl.includes('localhost');
-  if (httpsProduction && allow !== '1') {
-    throw new Error('AUTH_MODE=local is refused for https PUBLIC_BASE_URL unless ALLOW_LOCAL_AUTH=1');
+  if (allow === '1') {
+    return;
+  }
+  let hostname: string;
+  try {
+    hostname = new URL(publicBaseUrl).hostname;
+  } catch {
+    throw new Error('PUBLIC_BASE_URL must be a valid URL');
+  }
+  const loopback = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1';
+  if (!loopback) {
+    throw new Error('AUTH_MODE=local is refused unless PUBLIC_BASE_URL is localhost or ALLOW_LOCAL_AUTH=1');
   }
 }

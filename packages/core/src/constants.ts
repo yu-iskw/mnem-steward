@@ -14,3 +14,13 @@ export const OAUTH_SCOPES = [
   'memory.profile.read',
   'memory.history.read',
 ] as const;
+
+export const DEFAULT_SEARCH_LIMIT = 8;
+export const MAX_SEARCH_LIMIT = 20;
+
+export function normalizeSearchLimit(limit: number | undefined): number {
+  if (limit === undefined || Number.isNaN(limit) || limit < 1) {
+    return DEFAULT_SEARCH_LIMIT;
+  }
+  return Math.min(Math.floor(limit), MAX_SEARCH_LIMIT);
+}

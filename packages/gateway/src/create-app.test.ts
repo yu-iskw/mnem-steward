@@ -296,4 +296,15 @@ describe('gateway MCP', () => {
     });
     expect(response.status).toBe(403);
   });
+
+  it('rejects invalid JSON bodies', async () => {
+    const app = testApp();
+    const token = await bearerToken(app);
+    const response = await app.request('/v1/memories:search', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: '{',
+    });
+    expect(response.status).toBe(400);
+  });
 });
