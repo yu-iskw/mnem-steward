@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createInMemoryAuditSink } from './in-memory-audit-sink.js';
 import { createInMemoryMemoryStore } from './in-memory-store.js';
 import { createMemoryService } from './memory-service.js';
+import { parseProfileField } from './profile-fields.js';
 import { scanSecrets } from './scan-secrets.js';
 import { toMemoryBankScope } from './scope.js';
 import { ttlMsForKind } from './ttl.js';
@@ -74,6 +75,22 @@ describe('scanSecrets', () => {
     expect(
       scanSecrets(['https://hooks.slack.com/services', 'T00', 'B00', 'exampletoken'].join('/')).hit,
     ).toBe(true);
+  });
+});
+
+describe('parseProfileField', () => {
+  it('parses key/value facts with colon or equals', () => {
+    expect(parseProfileField('preferred_package_manager: pnpm')).toEqual({
+      key: 'preferred_package_manager',
+      value: 'pnpm',
+    });
+    expect(parseProfileField('lang = ts')).toEqual({ key: 'lang', value: 'ts' });
+  });
+
+  it('rejects empty values and ReDoS-shaped prefixes', () => {
+    expect(parseProfileField('key:')).toBeUndefined();
+    expect(parseProfileField(`-:${' '.repeat(200)}`)).toBeUndefined();
+    expect(parseProfileField('not a field')).toBeUndefined();
   });
 });
 
