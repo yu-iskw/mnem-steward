@@ -1,4 +1,4 @@
-import { isMemoryDomainError } from '@enterprise-memory/core';
+import { isMemoryDomainError } from '@mnem-steward/core';
 
 export function domainErrorStatus(error: unknown): 400 | 401 | 403 | 404 | 500 | 503 {
   if (!isMemoryDomainError(error)) {

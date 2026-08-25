@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createMemoryClient, MemoryClientError } from './index.js';
 
-import type { MemoryRecord } from '@enterprise-memory/core';
+import type { MemoryRecord } from '@mnem-steward/core';
 
 const stored: MemoryRecord = {
   id: 'mem_1',

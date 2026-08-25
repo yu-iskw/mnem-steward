@@ -1,9 +1,6 @@
-import {
-  googleMemoryConfigFromEnv,
-  isGoogleMemoryConfigured,
-} from '@enterprise-memory/google-memory';
+import { googleMemoryConfigFromEnv, isGoogleMemoryConfigured } from '@mnem-steward/google-memory';
 
-import type { GoogleMemoryConfig } from '@enterprise-memory/google-memory';
+import type { GoogleMemoryConfig } from '@mnem-steward/google-memory';
 
 export type AuthMode = 'local' | 'jwks';
 export type MemoryStoreMode = 'in-memory' | 'google';

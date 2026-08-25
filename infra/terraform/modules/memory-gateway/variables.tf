@@ -11,7 +11,7 @@ variable "location" {
 
 variable "service_name" {
   type        = string
-  default     = "enterprise-memory-gateway"
+  default     = "mnem-steward-gateway"
 }
 
 variable "image" {

@@ -1,8 +1,8 @@
 {
-  "name": "@enterprise-memory/google-memory",
+  "name": "@mnem-steward/google-memory",
   "version": "1.0.0",
   "private": true,
-  "description": "Google Memory Bank adapter for the enterprise memory store port.",
+  "description": "Google Memory Bank adapter for the Mnem Steward store port.",
   "keywords": [
     "memory-bank",
     "google-cloud"
@@ -22,6 +22,6 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@enterprise-memory/core": "workspace:*"
+    "@mnem-steward/core": "workspace:*"
   }
 }

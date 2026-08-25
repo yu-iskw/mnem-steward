@@ -1,4 +1,4 @@
-import type { Principal } from '@enterprise-memory/core';
+import type { Principal } from '@mnem-steward/core';
 import type { Hono } from 'hono';
 
 export type AppEnv = {

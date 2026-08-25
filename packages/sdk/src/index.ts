@@ -1,11 +1,11 @@
-import { EMPLOYEE_AGENT_SCHEMA } from '@enterprise-memory/core';
+import { EMPLOYEE_AGENT_SCHEMA } from '@mnem-steward/core';
 
 import type {
   HistoryOutcome,
   MemoryRecord,
   ProfileOutcome,
   SearchOutcome,
-} from '@enterprise-memory/core';
+} from '@mnem-steward/core';
 
 export class MemoryClientError extends Error {
   readonly status: number;

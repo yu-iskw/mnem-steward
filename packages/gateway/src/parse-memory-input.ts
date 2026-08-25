@@ -1,6 +1,6 @@
-import { MemoryDomainError, parseMemoryContext, parseMemoryKind } from '@enterprise-memory/core';
+import { MemoryDomainError, parseMemoryContext, parseMemoryKind } from '@mnem-steward/core';
 
-import type { MemoryKind } from '@enterprise-memory/core';
+import type { MemoryKind } from '@mnem-steward/core';
 
 export { parseMemoryContext as parseContext };
 

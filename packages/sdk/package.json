@@ -1,8 +1,8 @@
 {
-  "name": "@enterprise-memory/sdk",
+  "name": "@mnem-steward/sdk",
   "version": "1.0.0",
   "private": true,
-  "description": "TypeScript REST client for the enterprise memory gateway.",
+  "description": "TypeScript REST client for the Mnem Steward gateway.",
   "keywords": [
     "sdk",
     "memory"
@@ -22,6 +22,6 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@enterprise-memory/core": "workspace:*"
+    "@mnem-steward/core": "workspace:*"
   }
 }

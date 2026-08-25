@@ -4,7 +4,7 @@ import {
   MemoryDomainError,
   STORE_UNAVAILABLE_REASON,
   UNTRUSTED_MEMORY_NOTICE,
-} from '@enterprise-memory/core';
+} from '@mnem-steward/core';
 
 import { memoryBankBaseUrl, memoryBankParent } from './config.js';
 import {
@@ -32,7 +32,7 @@ import type {
   ProfileSchemaId,
   RememberInput,
   SearchOutcome,
-} from '@enterprise-memory/core';
+} from '@mnem-steward/core';
 
 export function createGoogleMemoryStore(input: {
   config: GoogleMemoryConfig;

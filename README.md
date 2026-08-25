@@ -1,4 +1,4 @@
-# Enterprise Agent Memory Platform
+# Mnem Steward
 
 Company-owned control plane for personal agent memory. Clients talk MCP and REST to this gateway; Google Memory Bank is a pluggable backend, not the public API.
 

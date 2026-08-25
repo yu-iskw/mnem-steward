@@ -1,8 +1,8 @@
 {
-  "name": "@enterprise-memory/core",
+  "name": "@mnem-steward/core",
   "version": "1.0.0",
   "private": true,
-  "description": "Enterprise memory domain, policy, and in-memory store.",
+  "description": "Mnem Steward domain, policy, and in-memory store.",
   "keywords": [
     "memory",
     "agents"

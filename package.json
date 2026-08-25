@@ -1,8 +1,8 @@
 {
-  "name": "enterprise-memory",
+  "name": "mnem-steward",
   "version": "1.0.0",
   "private": true,
-  "description": "Enterprise agent memory control plane with MCP, REST, and a pluggable MemoryStore.",
+  "description": "Mnem Steward control plane with MCP, REST, and a pluggable MemoryStore.",
   "keywords": [
     "mcp",
     "memory",
@@ -12,7 +12,7 @@
   "author": "",
   "scripts": {
     "build": "pnpm --recursive build",
-    "start": "pnpm --filter @enterprise-memory/gateway start",
+    "start": "pnpm --filter @mnem-steward/gateway start",
     "trunk": "trunk",
     "format": "pnpm format:trunk",
     "format:all": "pnpm format:trunk-all",

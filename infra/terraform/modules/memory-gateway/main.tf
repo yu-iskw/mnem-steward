@@ -10,7 +10,7 @@ terraform {
 
 resource "google_service_account" "gateway" {
   account_id   = "memory-gateway"
-  display_name = "Enterprise memory gateway"
+  display_name = "Mnem Steward gateway"
 }
 
 resource "google_cloud_run_v2_service" "gateway" {

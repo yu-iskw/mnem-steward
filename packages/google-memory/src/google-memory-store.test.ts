@@ -1,4 +1,4 @@
-import { principalIdFromOidc, UNTRUSTED_MEMORY_NOTICE } from '@enterprise-memory/core';
+import { principalIdFromOidc, UNTRUSTED_MEMORY_NOTICE } from '@mnem-steward/core';
 import { describe, expect, it } from 'vitest';
 
 import { isGoogleMemoryConfigured, memoryBankBaseUrl, memoryBankParent } from './config.js';
@@ -10,7 +10,7 @@ import {
   parseRevisions,
 } from './map-record.js';
 
-import type { Principal } from '@enterprise-memory/core';
+import type { Principal } from '@mnem-steward/core';
 
 const actor: Principal = {
   id: principalIdFromOidc('https://issuer.example', 'alice'),

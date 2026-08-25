@@ -1,8 +1,8 @@
 {
-  "name": "@enterprise-memory/auth",
+  "name": "@mnem-steward/auth",
   "version": "1.0.0",
   "private": true,
-  "description": "OAuth 2.1 resource-server helpers for the enterprise memory gateway.",
+  "description": "OAuth 2.1 resource-server helpers for the Mnem Steward gateway.",
   "keywords": [
     "oauth",
     "jwt"
@@ -22,7 +22,7 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@enterprise-memory/core": "workspace:*",
+    "@mnem-steward/core": "workspace:*",
     "jose": "^6.1.3"
   }
 }

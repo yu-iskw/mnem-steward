@@ -1,19 +1,16 @@
-import { createLocalHs256Verifier, createRemoteJwksVerifier } from '@enterprise-memory/auth';
+import { createLocalHs256Verifier, createRemoteJwksVerifier } from '@mnem-steward/auth';
 import {
   createInMemoryMemoryStore,
   createMemoryService,
   createRandomIdGenerator,
   createStdoutAuditSink,
   systemClock,
-} from '@enterprise-memory/core';
-import {
-  createAccessTokenProvider,
-  createGoogleMemoryStore,
-} from '@enterprise-memory/google-memory';
+} from '@mnem-steward/core';
+import { createAccessTokenProvider, createGoogleMemoryStore } from '@mnem-steward/google-memory';
 
 import type { GatewayEnv } from './env.js';
-import type { TokenVerifier } from '@enterprise-memory/auth';
-import type { MemoryService } from '@enterprise-memory/core';
+import type { TokenVerifier } from '@mnem-steward/auth';
+import type { MemoryService } from '@mnem-steward/core';
 
 export type GatewayDeps = {
   readonly env: GatewayEnv;

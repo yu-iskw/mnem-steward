@@ -67,7 +67,7 @@ importers:
 
   packages/auth:
     dependencies:
-      '@enterprise-memory/core':
+      '@mnem-steward/core':
         specifier: workspace:*
         version: link:../core
       jose:
@@ -78,13 +78,13 @@ importers:
 
   packages/gateway:
     dependencies:
-      '@enterprise-memory/auth':
+      '@mnem-steward/auth':
         specifier: workspace:*
         version: link:../auth
-      '@enterprise-memory/core':
+      '@mnem-steward/core':
         specifier: workspace:*
         version: link:../core
-      '@enterprise-memory/google-memory':
+      '@mnem-steward/google-memory':
         specifier: workspace:*
         version: link:../google-memory
       '@hono/node-server':
@@ -96,13 +96,13 @@ importers:
 
   packages/google-memory:
     dependencies:
-      '@enterprise-memory/core':
+      '@mnem-steward/core':
         specifier: workspace:*
         version: link:../core
 
   packages/sdk:
     dependencies:
-      '@enterprise-memory/core':
+      '@mnem-steward/core':
         specifier: workspace:*
         version: link:../core
 

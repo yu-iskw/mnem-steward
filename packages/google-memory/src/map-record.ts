@@ -4,7 +4,7 @@ import {
   toMemoryBankScope,
   tryParseClassification,
   tryParseMemoryKind,
-} from '@enterprise-memory/core';
+} from '@mnem-steward/core';
 
 import type {
   Classification,
@@ -14,7 +14,7 @@ import type {
   Principal,
   ProfileOutcome,
   RememberInput,
-} from '@enterprise-memory/core';
+} from '@mnem-steward/core';
 
 type JsonObject = { readonly [key: string]: unknown };
 

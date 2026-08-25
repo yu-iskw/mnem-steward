@@ -3,10 +3,10 @@ import {
   OAUTH_SCOPES,
   parseOAuthScopes,
   principalIdFromOidc,
-} from '@enterprise-memory/core';
+} from '@mnem-steward/core';
 import { createRemoteJWKSet, jwtVerify, SignJWT } from 'jose';
 
-import type { OAuthScope, Principal } from '@enterprise-memory/core';
+import type { OAuthScope, Principal } from '@mnem-steward/core';
 
 export type LocalIssuerConfig = {
   readonly secret: Uint8Array;

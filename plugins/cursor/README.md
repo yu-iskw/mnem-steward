@@ -12,8 +12,8 @@ export PUBLIC_BASE_URL=http://127.0.0.1:8080
 export AUTH_MODE=local
 export MEMORY_STORE=in-memory
 export LOCAL_JWT_SECRET=local-dev-secret-at-least-32-bytes!
-pnpm --filter @enterprise-memory/gateway build
-pnpm --filter @enterprise-memory/gateway start
+pnpm --filter @mnem-steward/gateway build
+pnpm --filter @mnem-steward/gateway start
 ```
 
 Issue a token:

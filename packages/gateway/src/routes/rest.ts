@@ -3,7 +3,7 @@ import {
   parseClassification,
   parseMemoryKind,
   parseTtl,
-} from '@enterprise-memory/core';
+} from '@mnem-steward/core';
 
 import {
   asObject,
@@ -16,7 +16,7 @@ import {
 } from '../parse-memory-input.js';
 
 import type { MemoryApp } from '../app-env.js';
-import type { MemoryService } from '@enterprise-memory/core';
+import type { MemoryService } from '@mnem-steward/core';
 
 export function mountRest(app: MemoryApp, memory: MemoryService): void {
   app.post('/v1/memories:search', async (context) => {

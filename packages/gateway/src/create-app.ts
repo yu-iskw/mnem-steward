@@ -1,4 +1,4 @@
-import { isMemoryDomainError } from '@enterprise-memory/core';
+import { isMemoryDomainError } from '@mnem-steward/core';
 import { Hono } from 'hono';
 
 import { domainErrorStatus } from './http-error.js';

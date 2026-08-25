@@ -1,6 +1,6 @@
 # Claude Code plugin notes
 
-Point Claude Code at the enterprise memory MCP endpoint:
+Point Claude Code at the Mnem Steward MCP endpoint:
 
 1. Run the gateway locally (`AUTH_MODE=local`, `MEMORY_STORE=in-memory`) or against Cloud Run.
 2. Register the MCP server URL `{PUBLIC_BASE_URL}/mcp`.

@@ -2,8 +2,8 @@ import {
   buildAuthorizationServerMetadata,
   buildProtectedResourceMetadata,
   issueLocalAccessToken,
-} from '@enterprise-memory/auth';
-import { OAUTH_SCOPES, parseOAuthScopes } from '@enterprise-memory/core';
+} from '@mnem-steward/auth';
+import { OAUTH_SCOPES, parseOAuthScopes } from '@mnem-steward/core';
 
 import type { MemoryApp } from '../app-env.js';
 import type { GatewayDeps } from '../create-deps.js';

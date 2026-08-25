@@ -1,8 +1,8 @@
 {
-  "name": "@enterprise-memory/gateway",
+  "name": "@mnem-steward/gateway",
   "version": "1.0.0",
   "private": true,
-  "description": "Cloud Run MCP/REST gateway for enterprise agent memory.",
+  "description": "Cloud Run MCP/REST gateway for Mnem Steward.",
   "keywords": [
     "mcp",
     "cloud-run"
@@ -23,9 +23,9 @@
     "start": "node dist/main.js"
   },
   "dependencies": {
-    "@enterprise-memory/auth": "workspace:*",
-    "@enterprise-memory/core": "workspace:*",
-    "@enterprise-memory/google-memory": "workspace:*",
+    "@mnem-steward/auth": "workspace:*",
+    "@mnem-steward/core": "workspace:*",
+    "@mnem-steward/google-memory": "workspace:*",
     "@hono/node-server": "^1.19.9",
     "hono": "^4.11.3"
   }

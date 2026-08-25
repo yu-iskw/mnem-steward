@@ -5,11 +5,11 @@ import { defineProject } from 'vitest/config';
 export default defineProject({
   resolve: {
     alias: {
-      '@enterprise-memory/core': fileURLToPath(new URL('../core/src/index.ts', import.meta.url)),
+      '@mnem-steward/core': fileURLToPath(new URL('../core/src/index.ts', import.meta.url)),
     },
   },
   test: {
-    name: '@enterprise-memory/google-memory',
+    name: '@mnem-steward/google-memory',
     include: ['src/**/*.{test,spec}.ts'],
     exclude: ['dist/**'],
   },

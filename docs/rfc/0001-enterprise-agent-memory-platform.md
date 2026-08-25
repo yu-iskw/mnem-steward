@@ -6,7 +6,7 @@
 | Date         | 2026-08-25                                                                                       |
 | Language     | TypeScript, Node 22+, pnpm 11 workspace                                                          |
 | License      | Apache-2.0                                                                                       |
-| Root package | `enterprise-memory`                                                                              |
+| Root package | `mnem-steward`                                                                                   |
 | Supersedes   | Original long-form RFC (Google Cloud Memory Bank). This document is the implementation contract. |
 
 ## 1. Executive summary
@@ -46,27 +46,27 @@ Shared promotion workflow, admin console, VPC-SC, Cloud Armor, DLP-as-a-service,
 flowchart LR
   subgraph clients [Clients]
     Agent[Agent / IDE]
-    SDK["@enterprise-memory/sdk"]
+    SDK["@mnem-steward/sdk"]
   end
-  subgraph gatewayPkg ["@enterprise-memory/gateway"]
+  subgraph gatewayPkg ["@mnem-steward/gateway"]
     Hono[Hono Node process]
     REST[REST /v1]
     MCP["POST /mcp"]
     Comp[Composition root]
   end
-  subgraph authPkg ["@enterprise-memory/auth"]
+  subgraph authPkg ["@mnem-steward/auth"]
     JWT[jose JWT]
     PRM[RFC 9728 PRM]
     AS[RFC 8414 local AS]
   end
-  subgraph corePkg ["@enterprise-memory/core"]
+  subgraph corePkg ["@mnem-steward/core"]
     Svc[MemoryService]
     Pol[Policy TTL secrets scope]
     Port[MemoryStore port]
     Mem[InMemoryMemoryStore]
     Audit[AuditSink]
   end
-  subgraph googlePkg ["@enterprise-memory/google-memory"]
+  subgraph googlePkg ["@mnem-steward/google-memory"]
     Adapt[Memory Bank v1beta1 adapter]
   end
   MB[(Memory Bank REST)]
@@ -91,15 +91,15 @@ Control plane owns protocol, policy, and composition. Store backends own persist
 
 ## 5. Package layout
 
-Root `package.json` name is `enterprise-memory`. Workspace members are only:
+Root `package.json` name is `mnem-steward`. Workspace members are only:
 
-| Package                            | Role                                                                                                                          | Runtime deps                                  |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `@enterprise-memory/core`          | Domain, policy, secrets, TTL, scope mapping, `MemoryStore` port, `InMemoryMemoryStore`, audit sink, `MemoryService` use cases | **None**                                      |
-| `@enterprise-memory/auth`          | JWT verify/issue (`jose`), RFC 9728 PRM, RFC 8414 AS metadata, local HS256 issuer                                             | `jose`                                        |
-| `@enterprise-memory/google-memory` | `MemoryStore` adapter over Memory Bank v1beta1 REST                                                                           | Injected `HttpClient` + `AccessTokenProvider` |
-| `@enterprise-memory/gateway`       | Hono on Node (`@hono/node-server`), composition root, REST + MCP, Cloud Run process                                           | Hono, workspace packages                      |
-| `@enterprise-memory/sdk`           | Typed REST client with injected `fetch`                                                                                       | None besides types                            |
+| Package                       | Role                                                                                                                          | Runtime deps                                  |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `@mnem-steward/core`          | Domain, policy, secrets, TTL, scope mapping, `MemoryStore` port, `InMemoryMemoryStore`, audit sink, `MemoryService` use cases | **None**                                      |
+| `@mnem-steward/auth`          | JWT verify/issue (`jose`), RFC 9728 PRM, RFC 8414 AS metadata, local HS256 issuer                                             | `jose`                                        |
+| `@mnem-steward/google-memory` | `MemoryStore` adapter over Memory Bank v1beta1 REST                                                                           | Injected `HttpClient` + `AccessTokenProvider` |
+| `@mnem-steward/gateway`       | Hono on Node (`@hono/node-server`), composition root, REST + MCP, Cloud Run process                                           | Hono, workspace packages                      |
+| `@mnem-steward/sdk`           | Typed REST client with injected `fetch`                                                                                       | None besides types                            |
 
 `packages/common` is removed. Gateway **is** the deployable; do not add `apps/*`.
 
@@ -345,7 +345,7 @@ Scopes (space-delimited `scope` claim):
 401 responses include:
 
 ```http
-WWW-Authenticate: Bearer realm="enterprise-memory", resource_metadata="{origin}/.well-known/oauth-protected-resource"
+WWW-Authenticate: Bearer realm="mnem-steward", resource_metadata="{origin}/.well-known/oauth-protected-resource"
 ```
 
 RFC 9728 Protected Resource Metadata:
@@ -393,7 +393,7 @@ Tool results that echo stored facts **must** include a reminder that retrieved m
 | `GET`    | `/.well-known/oauth-authorization-server`   | none                  | Local only                                                          |
 | `POST`   | `/oauth/token`                              | none                  | Local only                                                          |
 
-`@enterprise-memory/sdk` wraps these paths with injected `fetch` and typed errors (`401`, `403`, `404`, `503` unavailable).
+`@mnem-steward/sdk` wraps these paths with injected `fetch` and typed errors (`401`, `403`, `404`, `503` unavailable).
 
 ## 12. Google Memory Bank adapter
 
@@ -426,7 +426,7 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 
 ## 14. Cloud Run
 
-- Deploy **`@enterprise-memory/gateway`** only
+- Deploy **`@mnem-steward/gateway`** only
 - Recommended ingress: `internal-and-cloud-load-balancing` (front with an internal/external HTTPS LB as org policy requires)
 - Dockerfile for the gateway process (Node 22, non-root, `PORT`)
 - Terraform in this milestone is a **skeleton**: service, service account, IAM for Memory Bank invoke, secret for `AUTH_MODE=jwks` material, regional location variables. No VPC-SC or Cloud Armor modules yet
@@ -451,7 +451,7 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 ### 16.1 Closed (implementation contract)
 
 1. Control plane + pluggable `MemoryStore`; production Google Memory Bank; default `InMemoryMemoryStore`
-2. Five packages listed in §5; delete `packages/common`; root name `enterprise-memory`; no `apps/*`
+2. Five packages listed in §5; delete `packages/common`; root name `mnem-steward`; no `apps/*`
 3. Personal default; shared types exist; shared I/O denied until promotion
 4. OAuth 2.1 RS; `AUTH_MODE=local|jwks`; scopes in §9; principal from `iss`+`sub`
 5. MCP POST `/mcp`; 2025-06-18 methods + 2026-07-28 headers; no MCP SDK; tools/resources in §10
@@ -483,7 +483,7 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 
 ## 17. Milestone 1 acceptance criteria
 
-1. Workspace builds with pnpm 11 / Node 22+; root package `enterprise-memory`; `packages/common` gone; exactly the five packages in §5
+1. Workspace builds with pnpm 11 / Node 22+; root package `mnem-steward`; `packages/common` gone; exactly the five packages in §5
 2. Gateway serves REST §11 and MCP §10; local AS routes only when `AUTH_MODE=local`
 3. Personal remember → search → history → forget round-trip on `InMemoryMemoryStore` with JWT
 4. Shared namespace and `current_project` writes/reads denied
