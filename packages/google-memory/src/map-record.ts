@@ -14,7 +14,7 @@ import type {
   RememberInput,
 } from '@enterprise-memory/core';
 
-export type JsonObject = { readonly [key: string]: unknown };
+type JsonObject = { readonly [key: string]: unknown };
 
 export function generateMemoriesBody(input: RememberInput): JsonObject {
   const scope = toMemoryBankScope(input.context, input.principal);
