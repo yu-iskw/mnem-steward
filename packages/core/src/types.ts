@@ -2,12 +2,7 @@ import type { EMPLOYEE_AGENT_SCHEMA, OAUTH_SCOPES } from './constants.js';
 
 export type OAuthScope = (typeof OAUTH_SCOPES)[number];
 
-export type MemoryNamespace =
-  | 'personal'
-  | 'project'
-  | 'team'
-  | 'application'
-  | 'organization';
+export type MemoryNamespace = 'personal' | 'project' | 'team' | 'application' | 'organization';
 
 export type MemoryContext = 'personal' | 'current_project';
 
@@ -26,11 +21,7 @@ export type MemoryKind =
   | 'working';
 
 export type Classification =
-  | 'public'
-  | 'internal'
-  | 'confidential'
-  | 'restricted'
-  | 'prohibited-for-memory';
+  'public' | 'internal' | 'confidential' | 'restricted' | 'prohibited-for-memory';
 
 export type Ttl = { readonly expireAt: string } | { readonly ttlSeconds: number };
 

@@ -38,7 +38,9 @@ describe('gateway HTTP', () => {
     const document = (await prm.json()) as { resource: string };
     expect(document.resource).toBe('http://127.0.0.1:8080');
     const mcpPrm = await app.request('/.well-known/oauth-protected-resource/mcp');
-    expect(((await mcpPrm.json()) as { resource: string }).resource).toBe('http://127.0.0.1:8080/mcp');
+    expect(((await mcpPrm.json()) as { resource: string }).resource).toBe(
+      'http://127.0.0.1:8080/mcp',
+    );
   });
 
   it('rejects unauthenticated REST with WWW-Authenticate', async () => {
@@ -72,7 +74,11 @@ describe('gateway HTTP', () => {
       headers,
       body: JSON.stringify({ context: 'personal', text: 'pnpm' }),
     });
-    const found = (await search.json()) as { status: string; notice: string; memories: { id: string }[] };
+    const found = (await search.json()) as {
+      status: string;
+      notice: string;
+      memories: { id: string }[];
+    };
     expect(found.status).toBe('ok');
     expect(found.notice).toContain('untrusted');
     expect(found.memories[0]?.id).toBe(record.id);
@@ -123,7 +129,11 @@ describe('gateway MCP', () => {
         jsonrpc: '2.0',
         id: 1,
         method: 'initialize',
-        params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '1' } },
+        params: {
+          protocolVersion: '2025-06-18',
+          capabilities: {},
+          clientInfo: { name: 'test', version: '1' },
+        },
       }),
     });
     expect(initialized.status).toBe(200);
@@ -197,11 +207,20 @@ describe('gateway MCP', () => {
       body: JSON.stringify({ jsonrpc: '2.0', id: 34, method: 'nope' }),
     });
     expect(unknown.status).toBe(200);
-    for (const uri of ['memory://policy', 'memory://namespaces', 'memory://profiles/employee-agent']) {
+    for (const uri of [
+      'memory://policy',
+      'memory://namespaces',
+      'memory://profiles/employee-agent',
+    ]) {
       const read = await app.request('/mcp', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ jsonrpc: '2.0', id: uri, method: 'resources/read', params: { uri } }),
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: uri,
+          method: 'resources/read',
+          params: { uri },
+        }),
       });
       expect(read.status).toBe(200);
     }
@@ -277,7 +296,10 @@ describe('gateway MCP', () => {
       body: JSON.stringify({ jsonrpc: '2.0', id: 9, method: 'ping' }),
     });
     expect(response.status).toBe(200);
-    const get = await app.request('/mcp', { method: 'GET', headers: { Authorization: `Bearer ${token}` } });
+    const get = await app.request('/mcp', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+    });
     expect(get.status).toBe(405);
   });
 

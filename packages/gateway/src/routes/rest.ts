@@ -1,4 +1,9 @@
-import { EMPLOYEE_AGENT_SCHEMA, parseClassification, parseMemoryKind, parseTtl } from '@enterprise-memory/core';
+import {
+  EMPLOYEE_AGENT_SCHEMA,
+  parseClassification,
+  parseMemoryKind,
+  parseTtl,
+} from '@enterprise-memory/core';
 
 import {
   asObject,
@@ -41,7 +46,9 @@ export function mountRest(app: MemoryApp, memory: MemoryService): void {
         principal,
         context: parseContext(body['context']),
         kind: parseMemoryKind(requiredString(body['kind'], 'kind')),
-        classification: parseClassification(requiredString(body['classification'], 'classification')),
+        classification: parseClassification(
+          requiredString(body['classification'], 'classification'),
+        ),
         fact: requiredString(body['fact'], 'fact'),
         ttl: parseTtl(body['ttl']),
       },

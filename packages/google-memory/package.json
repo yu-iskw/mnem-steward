@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "description": "Google Memory Bank adapter for the enterprise memory store port.",
-  "keywords": ["memory-bank", "google-cloud"],
+  "keywords": [
+    "memory-bank",
+    "google-cloud"
+  ],
   "license": "Apache-2.0",
   "author": "",
   "type": "module",

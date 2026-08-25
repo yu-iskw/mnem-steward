@@ -63,7 +63,8 @@ export function createMemoryClient(input: {
     if (!response.ok) {
       const errorBody = asObject(body);
       const code = typeof errorBody['error'] === 'string' ? errorBody['error'] : 'http_error';
-      const message = typeof errorBody['message'] === 'string' ? errorBody['message'] : response.statusText;
+      const message =
+        typeof errorBody['message'] === 'string' ? errorBody['message'] : response.statusText;
       throw new MemoryClientError(response.status, code, message);
     }
     return body as T;
@@ -90,7 +91,8 @@ export function createMemoryClient(input: {
       const body: unknown = await response.json();
       const errorBody = asObject(body);
       const code = typeof errorBody['error'] === 'string' ? errorBody['error'] : 'http_error';
-      const message = typeof errorBody['message'] === 'string' ? errorBody['message'] : response.statusText;
+      const message =
+        typeof errorBody['message'] === 'string' ? errorBody['message'] : response.statusText;
       throw new MemoryClientError(response.status, code, message);
     },
     history(id) {

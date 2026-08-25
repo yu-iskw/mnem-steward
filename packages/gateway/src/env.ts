@@ -1,4 +1,7 @@
-import { googleMemoryConfigFromEnv, isGoogleMemoryConfigured } from '@enterprise-memory/google-memory';
+import {
+  googleMemoryConfigFromEnv,
+  isGoogleMemoryConfigured,
+} from '@enterprise-memory/google-memory';
 
 import type { GoogleMemoryConfig } from '@enterprise-memory/google-memory';
 
@@ -18,7 +21,7 @@ export type GatewayEnv = {
 };
 
 export function parseEnv(env: Record<string, string | undefined>): GatewayEnv {
-  const publicBaseUrl = required(env, 'PUBLIC_BASE_URL').replace(/\/$/u, '');
+  const publicBaseUrl = required(env['PUBLIC_BASE_URL'], 'PUBLIC_BASE_URL').replace(/\/$/u, '');
   const authMode = parseAuthMode(env['AUTH_MODE'] ?? 'local');
   const memoryStore = parseMemoryStore(env['MEMORY_STORE'] ?? 'in-memory');
   const tokenIssuer = env['AUTH_ISSUER'] ?? publicBaseUrl;
@@ -34,8 +37,11 @@ export function parseEnv(env: Record<string, string | undefined>): GatewayEnv {
     memoryStore,
     tokenIssuer,
     tokenAudience,
-    localJwtSecret: authMode === 'local' ? encodeSecret(required(env, 'LOCAL_JWT_SECRET')) : undefined,
-    jwksUrl: authMode === 'jwks' ? required(env, 'AUTH_JWKS_URL') : undefined,
+    localJwtSecret:
+      authMode === 'local'
+        ? encodeSecret(required(env['LOCAL_JWT_SECRET'], 'LOCAL_JWT_SECRET'))
+        : undefined,
+    jwksUrl: authMode === 'jwks' ? required(env['AUTH_JWKS_URL'], 'AUTH_JWKS_URL') : undefined,
     google: memoryStore === 'google' ? googleConfig(env) : undefined,
   };
 }
@@ -62,13 +68,14 @@ function parseMemoryStore(value: string): MemoryStoreMode {
 
 function googleConfig(env: Record<string, string | undefined>): GoogleMemoryConfig {
   if (!isGoogleMemoryConfigured(env)) {
-    throw new Error('MEMORY_STORE=google requires GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION, GOOGLE_REASONING_ENGINE_ID');
+    throw new Error(
+      'MEMORY_STORE=google requires GOOGLE_CLOUD_PROJECT, GOOGLE_CLOUD_LOCATION, GOOGLE_REASONING_ENGINE_ID',
+    );
   }
   return googleMemoryConfigFromEnv(env);
 }
 
-function required(env: Record<string, string | undefined>, key: string): string {
-  const value = env[key];
+function required(value: string | undefined, key: string): string {
   if (value === undefined || value.trim() === '') {
     throw new Error(`Missing required env ${key}`);
   }
@@ -92,8 +99,14 @@ function assertLocalAuthAllowed(publicBaseUrl: string, allow: string | undefined
   } catch {
     throw new Error('PUBLIC_BASE_URL must be a valid URL');
   }
-  const loopback = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1';
+  const loopback =
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '[::1]' ||
+    hostname === '::1';
   if (!loopback) {
-    throw new Error('AUTH_MODE=local is refused unless PUBLIC_BASE_URL is localhost or ALLOW_LOCAL_AUTH=1');
+    throw new Error(
+      'AUTH_MODE=local is refused unless PUBLIC_BASE_URL is localhost or ALLOW_LOCAL_AUTH=1',
+    );
   }
 }

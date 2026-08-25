@@ -18,7 +18,8 @@ export type JsonObject = { readonly [key: string]: unknown };
 
 export function generateMemoriesBody(input: RememberInput): JsonObject {
   const scope = toMemoryBankScope(input.context, input.principal);
-  const expireTime = input.ttl !== undefined && 'expireAt' in input.ttl ? input.ttl.expireAt : undefined;
+  const expireTime =
+    input.ttl !== undefined && 'expireAt' in input.ttl ? input.ttl.expireAt : undefined;
   return {
     scope,
     directMemoriesSource: {
@@ -90,7 +91,10 @@ export function parseRetrievedMemories(
   return records;
 }
 
-export function parseMemoryResource(memory: JsonObject, principal: Principal): MemoryRecord | undefined {
+export function parseMemoryResource(
+  memory: JsonObject,
+  principal: Principal,
+): MemoryRecord | undefined {
   const name = memory['name'];
   const fact = memory['fact'];
   if (typeof name !== 'string' || typeof fact !== 'string') {
@@ -103,7 +107,8 @@ export function parseMemoryResource(memory: JsonObject, principal: Principal): M
   const id = name.split('/').at(-1) ?? name;
   const { kind, text } = splitKindFact(fact);
   const expireAt = typeof memory['expireTime'] === 'string' ? memory['expireTime'] : undefined;
-  const createdAt = typeof memory['createTime'] === 'string' ? memory['createTime'] : new Date(0).toISOString();
+  const createdAt =
+    typeof memory['createTime'] === 'string' ? memory['createTime'] : new Date(0).toISOString();
   const updatedAt = typeof memory['updateTime'] === 'string' ? memory['updateTime'] : createdAt;
   return {
     id,
@@ -120,7 +125,9 @@ export function parseMemoryResource(memory: JsonObject, principal: Principal): M
 
 export function ownerFromMemory(memory: JsonObject): string | undefined {
   const scope = isObject(memory['scope']) ? memory['scope'] : undefined;
-  return scope !== undefined && typeof scope['principal_id'] === 'string' ? scope['principal_id'] : undefined;
+  return scope !== undefined && typeof scope['principal_id'] === 'string'
+    ? scope['principal_id']
+    : undefined;
 }
 
 export function parseRevisions(body: unknown, memoryId: string): MemoryRevision[] {
@@ -134,7 +141,8 @@ export function parseRevisions(body: unknown, memoryId: string): MemoryRevision[
     }
     const name = typeof item['name'] === 'string' ? item['name'] : '';
     const revisionId = name.split('/').at(-1) ?? name;
-    const updatedAt = typeof item['createTime'] === 'string' ? item['createTime'] : new Date(0).toISOString();
+    const updatedAt =
+      typeof item['createTime'] === 'string' ? item['createTime'] : new Date(0).toISOString();
     revisions.push({
       revisionId,
       memoryId,
@@ -148,9 +156,11 @@ export function parseRevisions(body: unknown, memoryId: string): MemoryRevision[
 export function parseProfile(body: unknown, principal: Principal): ProfileOutcome {
   const fields: Record<string, unknown> = {};
   if (isObject(body) && isObject(body['profiles'])) {
-    const profile = body['profiles'][EMPLOYEE_AGENT_SCHEMA];
-    if (isObject(profile) && isObject(profile['profile'])) {
-      Object.assign(fields, profile['profile']);
+    const selected = Object.entries(body['profiles']).find(
+      ([schema]) => schema === EMPLOYEE_AGENT_SCHEMA,
+    )?.[1];
+    if (isObject(selected) && isObject(selected['profile'])) {
+      Object.assign(fields, selected['profile']);
     }
   }
   return {

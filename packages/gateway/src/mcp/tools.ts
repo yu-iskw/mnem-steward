@@ -8,7 +8,14 @@ import {
   UNTRUSTED_MEMORY_NOTICE,
 } from '@enterprise-memory/core';
 
-import { asObject, optionalKind, optionalNumber, optionalString, parseContext, requiredString } from '../parse-memory-input.js';
+import {
+  asObject,
+  optionalKind,
+  optionalNumber,
+  optionalString,
+  parseContext,
+  requiredString,
+} from '../parse-memory-input.js';
 
 import type { MemoryService, Principal } from '@enterprise-memory/core';
 
@@ -74,15 +81,15 @@ export const MCP_TOOLS = [
 export const MCP_RESOURCES = [
   { uri: 'memory://policy', name: 'Memory policy', mimeType: 'application/json' },
   { uri: 'memory://namespaces', name: 'Namespaces', mimeType: 'application/json' },
-  { uri: PROFILE_RESOURCE_URI, name: 'Employee agent profile schema', mimeType: 'application/json' },
+  {
+    uri: PROFILE_RESOURCE_URI,
+    name: 'Employee agent profile schema',
+    mimeType: 'application/json',
+  },
 ] as const;
 
 type ToolName =
-  | 'memory_search'
-  | 'memory_remember'
-  | 'memory_forget'
-  | 'memory_history'
-  | 'memory_profile_get';
+  'memory_search' | 'memory_remember' | 'memory_forget' | 'memory_history' | 'memory_profile_get';
 
 export async function callMemoryTool(
   memory: MemoryService,
@@ -110,7 +117,9 @@ export async function callMemoryTool(
           principal,
           context: parseContext(record['context']),
           kind: parseMemoryKind(requiredString(record['kind'], 'kind')),
-          classification: parseClassification(requiredString(record['classification'], 'classification')),
+          classification: parseClassification(
+            requiredString(record['classification'], 'classification'),
+          ),
           fact: requiredString(record['fact'], 'fact'),
           ttl: parseTtl(record['ttl']),
         },

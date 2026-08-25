@@ -20,7 +20,11 @@ describe('local HS256 tokens', () => {
       subject: 'alice',
       scopes: ['memory.read', 'memory.write'],
     });
-    const verifier = createLocalHs256Verifier({ secret: SECRET, issuer: ISSUER, audience: AUDIENCE });
+    const verifier = createLocalHs256Verifier({
+      secret: SECRET,
+      issuer: ISSUER,
+      audience: AUDIENCE,
+    });
     const principal = await verifier.verify(`Bearer ${token}`);
     expect(principal.subject).toBe('alice');
     expect(principal.issuer).toBe(ISSUER);
@@ -29,7 +33,11 @@ describe('local HS256 tokens', () => {
   });
 
   it('rejects missing and wrong-audience tokens', async () => {
-    const verifier = createLocalHs256Verifier({ secret: SECRET, issuer: ISSUER, audience: AUDIENCE });
+    const verifier = createLocalHs256Verifier({
+      secret: SECRET,
+      issuer: ISSUER,
+      audience: AUDIENCE,
+    });
     await expect(verifier.verify(undefined)).rejects.toMatchObject({ code: 'unauthenticated' });
     await expect(verifier.verify('Basic nope')).rejects.toMatchObject({ code: 'unauthenticated' });
     const token = await issueLocalAccessToken({

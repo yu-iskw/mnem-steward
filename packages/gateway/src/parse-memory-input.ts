@@ -33,7 +33,9 @@ export function optionalKind(value: unknown): MemoryKind | undefined {
   return typeof value === 'string' ? parseMemoryKind(value) : undefined;
 }
 
-export async function readJson(context: { req: { json: () => Promise<unknown> } }): Promise<unknown> {
+export async function readJson(context: {
+  req: { json: () => Promise<unknown> };
+}): Promise<unknown> {
   try {
     return await context.req.json();
   } catch {

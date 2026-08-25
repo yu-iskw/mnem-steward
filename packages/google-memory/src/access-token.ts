@@ -56,5 +56,7 @@ function expiresInFrom(body: unknown): number {
     return 3600;
   }
   const expiresIn = (body as { expires_in?: unknown }).expires_in;
-  return typeof expiresIn === 'number' && Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : 3600;
+  return typeof expiresIn === 'number' && Number.isFinite(expiresIn) && expiresIn > 0
+    ? expiresIn
+    : 3600;
 }

@@ -1,4 +1,9 @@
-import { MemoryDomainError, OAUTH_SCOPES, parseOAuthScopes, principalIdFromOidc } from '@enterprise-memory/core';
+import {
+  MemoryDomainError,
+  OAUTH_SCOPES,
+  parseOAuthScopes,
+  principalIdFromOidc,
+} from '@enterprise-memory/core';
 import { createRemoteJWKSet, jwtVerify, SignJWT } from 'jose';
 
 import type { OAuthScope, Principal } from '@enterprise-memory/core';
@@ -115,11 +120,10 @@ function bearerToken(authorizationHeader: string | undefined): string {
     throw new MemoryDomainError('unauthenticated', 'Missing Authorization header');
   }
   const match = BEARER.exec(authorizationHeader);
-  const token = match?.[1];
-  if (token === undefined) {
+  if (match === null) {
     throw new MemoryDomainError('unauthenticated', 'Authorization header must be a Bearer token');
   }
-  return token;
+  return match[1];
 }
 
 function principalFromPayload(issuer: string, subject: unknown, scope: unknown): Principal {

@@ -81,7 +81,9 @@ export function createGoogleMemoryStore(input: {
         throw new MemoryDomainError('unavailable', STORE_UNAVAILABLE_REASON);
       }
       const resource = await requestJson(input, 'GET', `${base}/v1beta1/${name}`);
-      const parsed = isObject(resource) ? parseMemoryResource(resource, rememberInput.principal) : undefined;
+      const parsed = isObject(resource)
+        ? parseMemoryResource(resource, rememberInput.principal)
+        : undefined;
       if (parsed === undefined) {
         throw new MemoryDomainError('unavailable', STORE_UNAVAILABLE_REASON);
       }
@@ -96,7 +98,11 @@ export function createGoogleMemoryStore(input: {
     async history(id: MemoryId, principal: Principal): Promise<HistoryOutcome> {
       try {
         await requireOwnedMemory(input, base, parent, id, principal);
-        const body = await requestJson(input, 'GET', `${memoryResourceUrl(base, parent, id)}/revisions`);
+        const body = await requestJson(
+          input,
+          'GET',
+          `${memoryResourceUrl(base, parent, id)}/revisions`,
+        );
         return { status: 'ok', revisions: parseRevisions(body, id) };
       } catch (error) {
         if (isMemoryDomainError(error)) {

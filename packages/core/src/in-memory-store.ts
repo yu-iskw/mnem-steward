@@ -29,8 +29,12 @@ export function createInMemoryMemoryStore(deps: { clock: Clock; ids: IdGenerator
       const now = deps.clock.now();
       const limit = normalizeSearchLimit(query.limit);
       const needle = query.text?.trim().toLowerCase() ?? '';
-      const matches = [...records.values()].filter((record) => isVisible(record, query.principal, now));
-      const kindFiltered = matches.filter((record) => query.kind === undefined || record.kind === query.kind);
+      const matches = [...records.values()].filter((record) =>
+        isVisible(record, query.principal, now),
+      );
+      const kindFiltered = matches.filter(
+        (record) => query.kind === undefined || record.kind === query.kind,
+      );
       const textFiltered = kindFiltered.filter(
         (record) => needle === '' || record.fact.toLowerCase().includes(needle),
       );
@@ -106,7 +110,11 @@ export function createInMemoryMemoryStore(deps: { clock: Clock; ids: IdGenerator
 }
 
 function isVisible(record: MemoryRecord, principal: Principal, now: Date): boolean {
-  return record.principalId === principal.id && record.namespace === 'personal' && !isExpired(record.expireAt, now);
+  return (
+    record.principalId === principal.id &&
+    record.namespace === 'personal' &&
+    !isExpired(record.expireAt, now)
+  );
 }
 
 function appendRevision(

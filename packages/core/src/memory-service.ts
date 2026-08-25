@@ -1,5 +1,9 @@
 import { assertPersistableClassification } from './classification.js';
-import { normalizeSearchLimit, STORE_UNAVAILABLE_REASON, UNTRUSTED_MEMORY_NOTICE } from './constants.js';
+import {
+  normalizeSearchLimit,
+  STORE_UNAVAILABLE_REASON,
+  UNTRUSTED_MEMORY_NOTICE,
+} from './constants.js';
 import { isMemoryDomainError, MemoryDomainError } from './errors.js';
 import { assertMemoryId } from './ids.js';
 import { assertPersonalContext, assertScope } from './policy.js';
@@ -223,7 +227,8 @@ async function deny(
   error: unknown,
   memoryId?: MemoryId,
 ): Promise<void> {
-  const outcome = isMemoryDomainError(error) && error.code === 'unavailable' ? 'unavailable' : 'deny';
+  const outcome =
+    isMemoryDomainError(error) && error.code === 'unavailable' ? 'unavailable' : 'deny';
   await record(deps, principal, action, outcome, protocol, memoryId);
 }
 

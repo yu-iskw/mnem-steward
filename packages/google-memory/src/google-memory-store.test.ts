@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest';
 
 import { isGoogleMemoryConfigured, memoryBankBaseUrl, memoryBankParent } from './config.js';
 import { createGoogleMemoryStore } from './google-memory-store.js';
-import { generateMemoriesBody, parseProfile, parseRetrievedMemories, parseRevisions } from './map-record.js';
+import {
+  generateMemoriesBody,
+  parseProfile,
+  parseRetrievedMemories,
+  parseRevisions,
+} from './map-record.js';
 
 import type { Principal } from '@enterprise-memory/core';
 
@@ -11,7 +16,13 @@ const actor: Principal = {
   id: principalIdFromOidc('https://issuer.example', 'alice'),
   issuer: 'https://issuer.example',
   subject: 'alice',
-  scopes: ['memory.read', 'memory.write', 'memory.delete', 'memory.profile.read', 'memory.history.read'],
+  scopes: [
+    'memory.read',
+    'memory.write',
+    'memory.delete',
+    'memory.profile.read',
+    'memory.history.read',
+  ],
 };
 
 const bob: Principal = {
@@ -124,7 +135,10 @@ describe('google memory mapping', () => {
     const revisions = parseRevisions(
       {
         memoryRevisions: [
-          { name: 'projects/p/locations/eu/reasoningEngines/eng/memories/abc/revisions/r1', createTime: '2026-08-25T12:00:00Z' },
+          {
+            name: 'projects/p/locations/eu/reasoningEngines/eng/memories/abc/revisions/r1',
+            createTime: '2026-08-25T12:00:00Z',
+          },
         ],
       },
       'abc',
@@ -147,7 +161,11 @@ describe('google memory store with injected HTTP', () => {
     const store = createGoogleMemoryStore({
       config: { project: 'p', location: 'eu', reasoningEngineId: 'eng' },
       http,
-      tokens: { getAccessToken() { return Promise.resolve('ya29.token'); } },
+      tokens: {
+        getAccessToken() {
+          return Promise.resolve('ya29.token');
+        },
+      },
     });
     const remembered = await store.remember({
       principal: actor,
@@ -171,7 +189,11 @@ describe('google memory store with injected HTTP', () => {
     const store = createGoogleMemoryStore({
       config: { project: 'p', location: 'eu', reasoningEngineId: 'eng' },
       http,
-      tokens: { getAccessToken() { return Promise.resolve('ya29.token'); } },
+      tokens: {
+        getAccessToken() {
+          return Promise.resolve('ya29.token');
+        },
+      },
     });
     const remembered = await store.remember({
       principal: actor,
@@ -201,7 +223,12 @@ describe('google memory store with injected HTTP', () => {
 function createFakeMemoryBank(): { fetch: (url: string, init?: RequestInit) => Promise<Response> } {
   const memories = new Map<
     string,
-    { name: string; fact: string; scope?: { namespace: string; principal_id?: string }; expireTime?: string }
+    {
+      name: string;
+      fact: string;
+      scope?: { namespace: string; principal_id?: string };
+      expireTime?: string;
+    }
   >();
   return {
     fetch(url: string, init?: RequestInit): Promise<Response> {
@@ -236,18 +263,24 @@ function createFakeMemoryBank(): { fetch: (url: string, init?: RequestInit) => P
         );
       }
       if (method === 'DELETE') {
-        const existing = [...memories.keys()].find((name) => url.includes(`/${name.split('/').at(-1) ?? name}`));
+        const existing = [...memories.keys()].find((name) =>
+          url.includes(`/${name.split('/').at(-1) ?? name}`),
+        );
         if (existing !== undefined) {
           memories.delete(existing);
           return Promise.resolve(json({}, 204));
         }
         return Promise.resolve(json({}, 404));
       }
-      const existing = [...memories.values()].find((item) => url.includes(item.name) || url.endsWith(item.name));
+      const existing = [...memories.values()].find(
+        (item) => url.includes(item.name) || url.endsWith(item.name),
+      );
       if (method === 'GET' && existing !== undefined && url.endsWith('/revisions')) {
         return Promise.resolve(
           json({
-            memoryRevisions: [{ name: `${existing.name}/revisions/r1`, createTime: '2026-08-25T12:00:00Z' }],
+            memoryRevisions: [
+              { name: `${existing.name}/revisions/r1`, createTime: '2026-08-25T12:00:00Z' },
+            ],
           }),
         );
       }

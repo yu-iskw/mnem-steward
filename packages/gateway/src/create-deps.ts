@@ -6,7 +6,10 @@ import {
   createStdoutAuditSink,
   systemClock,
 } from '@enterprise-memory/core';
-import { createAccessTokenProvider, createGoogleMemoryStore } from '@enterprise-memory/google-memory';
+import {
+  createAccessTokenProvider,
+  createGoogleMemoryStore,
+} from '@enterprise-memory/google-memory';
 
 import type { GatewayEnv } from './env.js';
 import type { TokenVerifier } from '@enterprise-memory/auth';

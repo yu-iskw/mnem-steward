@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "description": "TypeScript REST client for the enterprise memory gateway.",
-  "keywords": ["sdk", "memory"],
+  "keywords": [
+    "sdk",
+    "memory"
+  ],
   "license": "Apache-2.0",
   "author": "",
   "type": "module",

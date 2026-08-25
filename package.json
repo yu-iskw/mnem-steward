@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "description": "Enterprise agent memory control plane with MCP, REST, and a pluggable MemoryStore.",
-  "keywords": ["mcp", "memory", "agents"],
+  "keywords": [
+    "mcp",
+    "memory",
+    "agents"
+  ],
   "license": "Apache-2.0",
   "author": "",
   "scripts": {

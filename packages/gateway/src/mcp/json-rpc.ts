@@ -38,6 +38,15 @@ export function jsonRpcResult(id: JsonRpcId, result: unknown): JsonRpcResponse {
   return { jsonrpc: '2.0', id, result };
 }
 
-export function jsonRpcError(id: JsonRpcId, code: number, message: string, data?: unknown): JsonRpcResponse {
-  return { jsonrpc: '2.0', id, error: data === undefined ? { code, message } : { code, message, data } };
+export function jsonRpcError(
+  id: JsonRpcId,
+  code: number,
+  message: string,
+  data?: unknown,
+): JsonRpcResponse {
+  return {
+    jsonrpc: '2.0',
+    id,
+    error: data === undefined ? { code, message } : { code, message, data },
+  };
 }

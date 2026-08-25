@@ -1,13 +1,13 @@
 # RFC 0001: Enterprise Agent Memory Platform
 
-| Field | Value |
-| --- | --- |
-| Status | **Accepted** (repository implementation) |
-| Date | 2026-08-25 |
-| Language | TypeScript, Node 22+, pnpm 11 workspace |
-| License | Apache-2.0 |
-| Root package | `enterprise-memory` |
-| Supersedes | Original long-form RFC (Google Cloud Memory Bank). This document is the implementation contract. |
+| Field        | Value                                                                                            |
+| ------------ | ------------------------------------------------------------------------------------------------ |
+| Status       | **Accepted** (repository implementation)                                                         |
+| Date         | 2026-08-25                                                                                       |
+| Language     | TypeScript, Node 22+, pnpm 11 workspace                                                          |
+| License      | Apache-2.0                                                                                       |
+| Root package | `enterprise-memory`                                                                              |
+| Supersedes   | Original long-form RFC (Google Cloud Memory Bank). This document is the implementation contract. |
 
 ## 1. Executive summary
 
@@ -93,13 +93,13 @@ Control plane owns protocol, policy, and composition. Store backends own persist
 
 Root `package.json` name is `enterprise-memory`. Workspace members are only:
 
-| Package | Role | Runtime deps |
-| --- | --- | --- |
-| `@enterprise-memory/core` | Domain, policy, secrets, TTL, scope mapping, `MemoryStore` port, `InMemoryMemoryStore`, audit sink, `MemoryService` use cases | **None** |
-| `@enterprise-memory/auth` | JWT verify/issue (`jose`), RFC 9728 PRM, RFC 8414 AS metadata, local HS256 issuer | `jose` |
-| `@enterprise-memory/google-memory` | `MemoryStore` adapter over Memory Bank v1beta1 REST | Injected `HttpClient` + `AccessTokenProvider` |
-| `@enterprise-memory/gateway` | Hono on Node (`@hono/node-server`), composition root, REST + MCP, Cloud Run process | Hono, workspace packages |
-| `@enterprise-memory/sdk` | Typed REST client with injected `fetch` | None besides types |
+| Package                            | Role                                                                                                                          | Runtime deps                                  |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `@enterprise-memory/core`          | Domain, policy, secrets, TTL, scope mapping, `MemoryStore` port, `InMemoryMemoryStore`, audit sink, `MemoryService` use cases | **None**                                      |
+| `@enterprise-memory/auth`          | JWT verify/issue (`jose`), RFC 9728 PRM, RFC 8414 AS metadata, local HS256 issuer                                             | `jose`                                        |
+| `@enterprise-memory/google-memory` | `MemoryStore` adapter over Memory Bank v1beta1 REST                                                                           | Injected `HttpClient` + `AccessTokenProvider` |
+| `@enterprise-memory/gateway`       | Hono on Node (`@hono/node-server`), composition root, REST + MCP, Cloud Run process                                           | Hono, workspace packages                      |
+| `@enterprise-memory/sdk`           | Typed REST client with injected `fetch`                                                                                       | None besides types                            |
 
 `packages/common` is removed. Gateway **is** the deployable; do not add `apps/*`.
 
@@ -108,15 +108,10 @@ Root `package.json` name is `enterprise-memory`. Workspace members are only:
 ### 6.1 Namespaces and contexts
 
 ```ts
-export type MemoryNamespace =
-  | "personal"
-  | "project"
-  | "team"
-  | "application"
-  | "organization";
+export type MemoryNamespace = 'personal' | 'project' | 'team' | 'application' | 'organization';
 
 /** Agent-facing hint. Never a Memory Bank scope map. */
-export type MemoryContext = "personal" | "current_project";
+export type MemoryContext = 'personal' | 'current_project';
 ```
 
 Milestone 1: only `personal` is eligible. `current_project` (and any non-personal namespace) is denied with a structured 403. Types for shared namespaces are kept so promotion does not fork the model.
@@ -146,33 +141,29 @@ Enterprise `MemoryKind` is the product type. Google `memoryType` (`NATURAL_LANGU
 
 ```ts
 export type MemoryKind =
-  | "identity"
-  | "preference"
-  | "fact"
-  | "procedure"
-  | "episode"
-  | "relationship"
-  | "constraint"
-  | "working";
+  | 'identity'
+  | 'preference'
+  | 'fact'
+  | 'procedure'
+  | 'episode'
+  | 'relationship'
+  | 'constraint'
+  | 'working';
 
 export type Classification =
-  | "public"
-  | "internal"
-  | "confidential"
-  | "restricted"
-  | "prohibited-for-memory";
+  'public' | 'internal' | 'confidential' | 'restricted' | 'prohibited-for-memory';
 
 export type Ttl = { readonly expireAt: string } | { readonly ttlSeconds: number };
 ```
 
 Default TTL (overridable per write; working is always short):
 
-| Kind | Default TTL |
-| --- | --- |
-| `working` | 24 hours |
-| `episode` | 30 days |
-| `preference`, `identity`, `relationship` | 365 days |
-| `fact`, `procedure`, `constraint` | 365 days |
+| Kind                                     | Default TTL |
+| ---------------------------------------- | ----------- |
+| `working`                                | 24 hours    |
+| `episode`                                | 30 days     |
+| `preference`, `identity`, `relationship` | 365 days    |
+| `fact`, `procedure`, `constraint`        | 365 days    |
 
 Memory Bank revision TTL falls back to instance config (global default 365 days) when the adapter omits an explicit revision expiration.
 
@@ -197,10 +188,10 @@ export interface MemoryRevision {
   readonly revisionId: string;
   readonly memoryId: MemoryId;
   readonly updatedAt: string;
-  readonly action: "created" | "updated" | "deleted";
+  readonly action: 'created' | 'updated' | 'deleted';
 }
 
-export type ProfileSchemaId = "employee-agent";
+export type ProfileSchemaId = 'employee-agent';
 
 export interface MemoryProfile {
   readonly schema: ProfileSchemaId;
@@ -209,16 +200,16 @@ export interface MemoryProfile {
 }
 
 export type SearchOutcome =
-  | { readonly status: "ok"; readonly memories: readonly MemoryRecord[] }
-  | { readonly status: "unavailable"; readonly reason: string };
+  | { readonly status: 'ok'; readonly memories: readonly MemoryRecord[] }
+  | { readonly status: 'unavailable'; readonly reason: string };
 
 export type ProfileOutcome =
-  | { readonly status: "ok"; readonly profile: MemoryProfile }
-  | { readonly status: "unavailable"; readonly reason: string };
+  | { readonly status: 'ok'; readonly profile: MemoryProfile }
+  | { readonly status: 'unavailable'; readonly reason: string };
 
 export type HistoryOutcome =
-  | { readonly status: "ok"; readonly revisions: readonly MemoryRevision[] }
-  | { readonly status: "unavailable"; readonly reason: string };
+  | { readonly status: 'ok'; readonly revisions: readonly MemoryRevision[] }
+  | { readonly status: 'unavailable'; readonly reason: string };
 ```
 
 Reads that cannot reach the store return `unavailable`, never an empty `ok` list. Writes that fail policy or persistence fail closed (4xx/5xx, no partial store).
@@ -235,10 +226,7 @@ export interface MemoryBankScope {
   readonly organization_id?: string;
 }
 
-export function toMemoryBankScope(
-  context: MemoryContext,
-  principal: Principal,
-): MemoryBankScope {
+export function toMemoryBankScope(context: MemoryContext, principal: Principal): MemoryBankScope {
   // personal → { namespace: "personal", principal_id }
   // current_project → denied in Milestone 1 before mapping is used to write/read
 }
@@ -271,20 +259,17 @@ export interface MemoryStore {
   remember(input: RememberInput): Promise<MemoryRecord>;
   forget(id: MemoryId, principal: Principal): Promise<void>;
   history(id: MemoryId, principal: Principal): Promise<HistoryOutcome>;
-  getProfile(
-    schema: ProfileSchemaId,
-    principal: Principal,
-  ): Promise<ProfileOutcome>;
+  getProfile(schema: ProfileSchemaId, principal: Principal): Promise<ProfileOutcome>;
 }
 
 export interface AuditEvent {
   readonly timestamp: string;
   readonly actor: PrincipalId;
-  readonly action: "search" | "remember" | "forget" | "history" | "profile_get";
-  readonly outcome: "allow" | "deny" | "unavailable";
+  readonly action: 'search' | 'remember' | 'forget' | 'history' | 'profile_get';
+  readonly outcome: 'allow' | 'deny' | 'unavailable';
   readonly namespace: MemoryNamespace;
   readonly memoryId?: MemoryId;
-  readonly protocol: "rest" | "mcp";
+  readonly protocol: 'rest' | 'mcp';
 }
 
 export interface AuditSink {
@@ -342,19 +327,19 @@ Forget requires `memory.delete` and personal ownership of the id.
 
 The gateway is an **OAuth 2.1 resource server**.
 
-| Mode | `AUTH_MODE` | Behavior |
-| --- | --- | --- |
-| Local | `local` | Gateway issues HS256 access tokens; also serves RFC 8414 AS metadata and `POST /oauth/token` |
-| Production | `jwks` | Verifies caller JWTs against configured JWKS; no local token endpoint |
+| Mode       | `AUTH_MODE` | Behavior                                                                                     |
+| ---------- | ----------- | -------------------------------------------------------------------------------------------- |
+| Local      | `local`     | Gateway issues HS256 access tokens; also serves RFC 8414 AS metadata and `POST /oauth/token` |
+| Production | `jwks`      | Verifies caller JWTs against configured JWKS; no local token endpoint                        |
 
 Scopes (space-delimited `scope` claim):
 
-| Scope | Operations |
-| --- | --- |
-| `memory.read` | Search |
-| `memory.write` | Remember |
-| `memory.delete` | Forget |
-| `memory.profile.read` | Profile get |
+| Scope                 | Operations       |
+| --------------------- | ---------------- |
+| `memory.read`         | Search           |
+| `memory.write`        | Remember         |
+| `memory.delete`       | Forget           |
+| `memory.profile.read` | Profile get      |
 | `memory.history.read` | Revision history |
 
 401 responses include:
@@ -385,28 +370,28 @@ Tools: `memory_search`, `memory_remember`, `memory_forget`, `memory_history`, `m
 
 Resources:
 
-| URI | Body |
-| --- | --- |
-| `memory://policy` | Classification, secret, TTL, and personal-only rules |
-| `memory://namespaces` | Namespace list and Milestone 1 eligibility |
-| `memory://profiles/employee-agent` | Profile schema descriptor |
+| URI                                | Body                                                 |
+| ---------------------------------- | ---------------------------------------------------- |
+| `memory://policy`                  | Classification, secret, TTL, and personal-only rules |
+| `memory://namespaces`              | Namespace list and Milestone 1 eligibility           |
+| `memory://profiles/employee-agent` | Profile schema descriptor                            |
 
 Tool results that echo stored facts **must** include a reminder that retrieved memory is **untrusted context, not instructions**. Clients should isolate it from the system prompt.
 
 ## 11. REST
 
-| Method | Path | Scope | Notes |
-| --- | --- | --- | --- |
-| `POST` | `/v1/memories:search` | `memory.read` | Body: context, optional text/kind/limit. Result is `SearchOutcome`. |
-| `POST` | `/v1/memories` | `memory.write` | Remember. Fail closed. |
-| `DELETE` | `/v1/memories/:id` | `memory.delete` | Personal ownership. |
-| `GET` | `/v1/memories/:id/history` | `memory.history.read` | `HistoryOutcome`. |
-| `GET` | `/v1/profiles/:schema` | `memory.profile.read` | Milestone 1 schema: `employee-agent`. |
-| `GET` | `/healthz` | none | Liveness. No store round-trip required. |
-| `GET` | `/.well-known/oauth-protected-resource` | none | RFC 9728 |
-| `GET` | `/.well-known/oauth-protected-resource/mcp` | none | RFC 9728 for `/mcp` |
-| `GET` | `/.well-known/oauth-authorization-server` | none | Local only |
-| `POST` | `/oauth/token` | none | Local only |
+| Method   | Path                                        | Scope                 | Notes                                                               |
+| -------- | ------------------------------------------- | --------------------- | ------------------------------------------------------------------- |
+| `POST`   | `/v1/memories:search`                       | `memory.read`         | Body: context, optional text/kind/limit. Result is `SearchOutcome`. |
+| `POST`   | `/v1/memories`                              | `memory.write`        | Remember. Fail closed.                                              |
+| `DELETE` | `/v1/memories/:id`                          | `memory.delete`       | Personal ownership.                                                 |
+| `GET`    | `/v1/memories/:id/history`                  | `memory.history.read` | `HistoryOutcome`.                                                   |
+| `GET`    | `/v1/profiles/:schema`                      | `memory.profile.read` | Milestone 1 schema: `employee-agent`.                               |
+| `GET`    | `/healthz`                                  | none                  | Liveness. No store round-trip required.                             |
+| `GET`    | `/.well-known/oauth-protected-resource`     | none                  | RFC 9728                                                            |
+| `GET`    | `/.well-known/oauth-protected-resource/mcp` | none                  | RFC 9728 for `/mcp`                                                 |
+| `GET`    | `/.well-known/oauth-authorization-server`   | none                  | Local only                                                          |
+| `POST`   | `/oauth/token`                              | none                  | Local only                                                          |
 
 `@enterprise-memory/sdk` wraps these paths with injected `fetch` and typed errors (`401`, `403`, `404`, `503` unavailable).
 
@@ -421,14 +406,14 @@ Tool results that echo stored facts **must** include a reminder that retrieved m
 
 Mapping sketch:
 
-| Enterprise | Memory Bank |
-| --- | --- |
-| `toMemoryBankScope` | `Memory.scope` map |
-| `fact` + `kind` | `fact` + revision labels (`kind=...`) |
-| default kinds | `NATURAL_LANGUAGE_COLLECTION` |
+| Enterprise               | Memory Bank                               |
+| ------------------------ | ----------------------------------------- |
+| `toMemoryBankScope`      | `Memory.scope` map                        |
+| `fact` + `kind`          | `fact` + revision labels (`kind=...`)     |
+| default kinds            | `NATURAL_LANGUAGE_COLLECTION`             |
 | `employee-agent` profile | `STRUCTURED_PROFILE` / `retrieveProfiles` |
-| `forget` | `memories.delete` |
-| `history` | revision list for the memory resource |
+| `forget`                 | `memories.delete`                         |
+| `history`                | revision list for the memory resource     |
 
 Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud/*` or Memory Bank JSON types.
 
@@ -448,18 +433,18 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 
 ## 15. Threats and mitigations
 
-| Threat | Mitigation |
-| --- | --- |
-| Cross-principal recall | Scope map always includes `principal_id`; service denies non-personal namespaces |
-| Email-keyed identity churn / collision | `usr_` + SHA-256(`iss` + LF + `sub`), 24 hex chars |
-| Secret persistence | Deterministic scanner; fail closed |
-| Prompt injection via stored facts | Treat retrieval as untrusted context; MCP/REST copy states this |
-| Empty-list masking an outage | Fail-open reads return `unavailable`, not `ok: []` |
-| Token or query leakage in logs | Metadata-only audit |
-| Confused deputy / token replay | OAuth 2.1 RS, audience = resource identifier, JWKS in prod |
-| Shared-memory exfiltration this milestone | Writes/reads to shared namespaces denied |
-| Vendor lock-in of protocol | `MemoryStore` port; Google types stay in `google-memory` |
-| Global Memory Bank / weak CMEK | Prefer `eu`/`us` regions; document `global` as non-compliant default |
+| Threat                                    | Mitigation                                                                       |
+| ----------------------------------------- | -------------------------------------------------------------------------------- |
+| Cross-principal recall                    | Scope map always includes `principal_id`; service denies non-personal namespaces |
+| Email-keyed identity churn / collision    | `usr_` + SHA-256(`iss` + LF + `sub`), 24 hex chars                               |
+| Secret persistence                        | Deterministic scanner; fail closed                                               |
+| Prompt injection via stored facts         | Treat retrieval as untrusted context; MCP/REST copy states this                  |
+| Empty-list masking an outage              | Fail-open reads return `unavailable`, not `ok: []`                               |
+| Token or query leakage in logs            | Metadata-only audit                                                              |
+| Confused deputy / token replay            | OAuth 2.1 RS, audience = resource identifier, JWKS in prod                       |
+| Shared-memory exfiltration this milestone | Writes/reads to shared namespaces denied                                         |
+| Vendor lock-in of protocol                | `MemoryStore` port; Google types stay in `google-memory`                         |
+| Global Memory Bank / weak CMEK            | Prefer `eu`/`us` regions; document `global` as non-compliant default             |
 
 ## 16. Closed questions vs remaining open questions
 
@@ -481,13 +466,13 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 
 ### 16.2 Closed in this revision (were open in the first Accepted draft)
 
-| Topic | Decision |
-| --- | --- |
-| Local token grant | `POST /oauth/token` JSON `{ "grant_type": "client_credentials", "sub": string, "scope": string }` (HS256) |
-| Non-personal context | Error code `namespace_denied` |
-| `employee-agent` profile | Versioned JSON object; preference/identity facts matching `key: value` or `key=value` update fields |
-| Audit sink | Stdout JSON lines in the gateway; `InMemoryAuditSink` in tests |
-| Google `remember` | `POST .../memories:generate` with `directMemoriesSource` (consolidation on); poll LRO |
+| Topic                    | Decision                                                                                                  |
+| ------------------------ | --------------------------------------------------------------------------------------------------------- |
+| Local token grant        | `POST /oauth/token` JSON `{ "grant_type": "client_credentials", "sub": string, "scope": string }` (HS256) |
+| Non-personal context     | Error code `namespace_denied`                                                                             |
+| `employee-agent` profile | Versioned JSON object; preference/identity facts matching `key: value` or `key=value` update fields       |
+| Audit sink               | Stdout JSON lines in the gateway; `InMemoryAuditSink` in tests                                            |
+| Google `remember`        | `POST .../memories:generate` with `directMemoriesSource` (consolidation on); poll LRO                     |
 
 ### 16.3 Still open (do not block Milestone 1)
 
@@ -512,46 +497,46 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 
 ## Appendix A — MCP tool surface
 
-| Tool | Scope | Arguments | Result |
-| --- | --- | --- | --- |
-| `memory_search` | `memory.read` | `context`, optional `text`, `kind`, `limit` | `SearchOutcome` + untrusted notice |
-| `memory_remember` | `memory.write` | `context`, `kind`, `classification`, `fact`, optional `ttl` | `MemoryRecord` |
-| `memory_forget` | `memory.delete` | `id` | `{ "deleted": true }` |
-| `memory_history` | `memory.history.read` | `id` | `HistoryOutcome` |
-| `memory_profile_get` | `memory.profile.read` | `schema` (default `employee-agent`) | `ProfileOutcome` |
+| Tool                 | Scope                 | Arguments                                                   | Result                             |
+| -------------------- | --------------------- | ----------------------------------------------------------- | ---------------------------------- |
+| `memory_search`      | `memory.read`         | `context`, optional `text`, `kind`, `limit`                 | `SearchOutcome` + untrusted notice |
+| `memory_remember`    | `memory.write`        | `context`, `kind`, `classification`, `fact`, optional `ttl` | `MemoryRecord`                     |
+| `memory_forget`      | `memory.delete`       | `id`                                                        | `{ "deleted": true }`              |
+| `memory_history`     | `memory.history.read` | `id`                                                        | `HistoryOutcome`                   |
+| `memory_profile_get` | `memory.profile.read` | `schema` (default `employee-agent`)                         | `ProfileOutcome`                   |
 
 ## Appendix B — Environment variables
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `PORT` | Cloud Run | Listen port |
-| `AUTH_MODE` | yes | `local` or `jwks` |
-| `PUBLIC_BASE_URL` | yes | Resource identifier / PRM URLs |
-| `AUTH_ISSUER` | `jwks` | Expected `iss` |
-| `AUTH_AUDIENCE` | `jwks` | Expected `aud` (resource id) |
-| `AUTH_JWKS_URL` | `jwks` | JWKS endpoint |
-| `LOCAL_JWT_SECRET` | `local` | HS256 key |
-| `MEMORY_STORE` | yes | `in-memory` or `google` |
-| `GOOGLE_CLOUD_PROJECT` | Google store / live tests | GCP project |
-| `GOOGLE_CLOUD_LOCATION` | Google store / live tests | Regional location (not `global` in prod) |
-| `GOOGLE_REASONING_ENGINE_ID` | Google store / live tests | Standalone Memory Bank engine id |
+| Variable                     | Required                  | Purpose                                  |
+| ---------------------------- | ------------------------- | ---------------------------------------- |
+| `PORT`                       | Cloud Run                 | Listen port                              |
+| `AUTH_MODE`                  | yes                       | `local` or `jwks`                        |
+| `PUBLIC_BASE_URL`            | yes                       | Resource identifier / PRM URLs           |
+| `AUTH_ISSUER`                | `jwks`                    | Expected `iss`                           |
+| `AUTH_AUDIENCE`              | `jwks`                    | Expected `aud` (resource id)             |
+| `AUTH_JWKS_URL`              | `jwks`                    | JWKS endpoint                            |
+| `LOCAL_JWT_SECRET`           | `local`                   | HS256 key                                |
+| `MEMORY_STORE`               | yes                       | `in-memory` or `google`                  |
+| `GOOGLE_CLOUD_PROJECT`       | Google store / live tests | GCP project                              |
+| `GOOGLE_CLOUD_LOCATION`      | Google store / live tests | Regional location (not `global` in prod) |
+| `GOOGLE_REASONING_ENGINE_ID` | Google store / live tests | Standalone Memory Bank engine id         |
 
 ## Appendix C — Decision log
 
-| Decision | Choice | Why |
-| --- | --- | --- |
-| Who owns policy? | Company control plane | Vendor store is not an RS, MCP server, or classifier |
-| Default namespace | Personal | Least surprise; shared memory is a promotion problem |
-| SoR | Not memory | Derived facts; outages must surface |
-| Identity | `iss`+`sub` hash | Email is not stable and is PII-heavy as a key |
-| Auth | OAuth 2.1 RS + PRM | Fits MCP and REST; local HS256 for tests |
-| MCP SDK | None | Keep gateway thin; speak the wire |
-| Store default | In-memory | Deterministic tests without I/O mocks |
-| Production store | Memory Bank v1beta1 | Org is on Gemini Enterprise Agent Platform |
-| Region | eu/us not global | CMEK / residency |
-| Scanner | Deterministic | Fail closed without model nondeterminism |
-| Packages | Five, no `apps/*`, no `common` | One composition root: gateway |
-| Reads vs writes | Fail-open / fail-closed | Safety of recall vs safety of persistence |
+| Decision          | Choice                         | Why                                                  |
+| ----------------- | ------------------------------ | ---------------------------------------------------- |
+| Who owns policy?  | Company control plane          | Vendor store is not an RS, MCP server, or classifier |
+| Default namespace | Personal                       | Least surprise; shared memory is a promotion problem |
+| SoR               | Not memory                     | Derived facts; outages must surface                  |
+| Identity          | `iss`+`sub` hash               | Email is not stable and is PII-heavy as a key        |
+| Auth              | OAuth 2.1 RS + PRM             | Fits MCP and REST; local HS256 for tests             |
+| MCP SDK           | None                           | Keep gateway thin; speak the wire                    |
+| Store default     | In-memory                      | Deterministic tests without I/O mocks                |
+| Production store  | Memory Bank v1beta1            | Org is on Gemini Enterprise Agent Platform           |
+| Region            | eu/us not global               | CMEK / residency                                     |
+| Scanner           | Deterministic                  | Fail closed without model nondeterminism             |
+| Packages          | Five, no `apps/*`, no `common` | One composition root: gateway                        |
+| Reads vs writes   | Fail-open / fail-closed        | Safety of recall vs safety of persistence            |
 
 ## Appendix D — Implementation notes for agents
 

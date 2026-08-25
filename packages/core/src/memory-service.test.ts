@@ -66,7 +66,9 @@ describe('scanSecrets', () => {
       expect(aws.rule).toBe('aws-access-key');
     }
     expect(scanSecrets('token ghp_abcdefghijklmnopqrstuvwxyz012345').hit).toBe(true);
-    expect(scanSecrets('aws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY').hit).toBe(true);
+    expect(scanSecrets('aws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY').hit).toBe(
+      true,
+    );
     expect(scanSecrets('sk-ant-api03-abcdefghijklmnopqrstuvwxyz').hit).toBe(true);
     expect(scanSecrets('Bearer ya29.a0AfH6SMCabcdefghijklmnopqrst').hit).toBe(true);
     expect(
@@ -129,9 +131,9 @@ describe('MemoryService', () => {
     await memory.forget(stored.id, actor);
     const after = await memory.search({ principal: actor, context: 'personal', text: 'pnpm' });
     expect(after.status === 'ok' && after.memories).toEqual([]);
-    expect(audit.events().some((event) => event.action === 'remember' && event.outcome === 'allow')).toBe(
-      true,
-    );
+    expect(
+      audit.events().some((event) => event.action === 'remember' && event.outcome === 'allow'),
+    ).toBe(true);
     expect(JSON.stringify(audit.events())).not.toContain('pnpm');
   });
 

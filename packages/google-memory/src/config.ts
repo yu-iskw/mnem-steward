@@ -12,9 +12,10 @@ export type HttpClient = {
   fetch(input: string, init?: RequestInit): Promise<Response>;
 };
 
-export function isGoogleMemoryConfigured(
-  env: Record<string, string | undefined>,
-): env is Record<string, string | undefined> & {
+export function isGoogleMemoryConfigured(env: Record<string, string | undefined>): env is Record<
+  string,
+  string | undefined
+> & {
   GOOGLE_CLOUD_PROJECT: string;
   GOOGLE_CLOUD_LOCATION: string;
   GOOGLE_REASONING_ENGINE_ID: string;
@@ -26,7 +27,9 @@ export function isGoogleMemoryConfigured(
   );
 }
 
-export function googleMemoryConfigFromEnv(env: Record<string, string | undefined>): GoogleMemoryConfig {
+export function googleMemoryConfigFromEnv(
+  env: Record<string, string | undefined>,
+): GoogleMemoryConfig {
   if (!isGoogleMemoryConfigured(env)) {
     throw new Error('Google Memory Bank env is incomplete');
   }
