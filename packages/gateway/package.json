@@ -1,0 +1,29 @@
+{
+  "name": "@enterprise-memory/gateway",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloud Run MCP/REST gateway for enterprise agent memory.",
+  "keywords": ["mcp", "cloud-run"],
+  "license": "Apache-2.0",
+  "author": "",
+  "type": "module",
+  "main": "dist/main.js",
+  "types": "src/create-app.ts",
+  "exports": {
+    ".": {
+      "types": "./src/create-app.ts",
+      "import": "./dist/create-app.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@enterprise-memory/auth": "workspace:*",
+    "@enterprise-memory/core": "workspace:*",
+    "@enterprise-memory/google-memory": "workspace:*",
+    "@hono/node-server": "^1.19.9",
+    "hono": "^4.11.3"
+  }
+}

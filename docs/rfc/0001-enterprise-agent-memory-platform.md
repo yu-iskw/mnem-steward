@@ -434,7 +434,7 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 
 ## 13. Testing and quality
 
-- Vitest. Coverage gates: **80% statements / 80% branches / 80% functions / 70% lines**
+- Vitest. Coverage gates match the workspace config: **80% lines / 80% functions / 80% statements / 70% branches**
 - No `vi.mock` of I/O. Use `InMemoryMemoryStore`, injected `HttpClient`, injected `fetch`
 - Google live tests skip without the three env vars above
 - `pnpm test` / `pnpm lint` before merge as in `AGENTS.md`
@@ -479,13 +479,22 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 12. Deferred list in §3.2
 13. License remains Apache-2.0
 
-### 16.2 Open (do not block Milestone 1)
+### 16.2 Closed in this revision (were open in the first Accepted draft)
 
-- Exact HS256 local token grant shape (`client_credentials` vs a test-only JSON body) — pick one in `@enterprise-memory/auth` and document in the package README
-- Whether `current_project` returns a dedicated error code vs generic `namespace_denied`
-- Profile field schema for `employee-agent` beyond a versioned JSON object (locale, working hours, communication preferences)
-- Audit sink production backend (Cloud Logging vs stdout JSON) — stdout JSON is acceptable for Milestone 1
-- Consolidation vs raw `memories.create` for `remember` (adapter may use `memories:generate` with `directMemoriesSource`)
+| Topic | Decision |
+| --- | --- |
+| Local token grant | `POST /oauth/token` JSON `{ "grant_type": "client_credentials", "sub": string, "scope": string }` (HS256) |
+| Non-personal context | Error code `namespace_denied` |
+| `employee-agent` profile | Versioned JSON object; preference/identity facts matching `key: value` or `key=value` update fields |
+| Audit sink | Stdout JSON lines in the gateway; `InMemoryAuditSink` in tests |
+| Google `remember` | `POST .../memories:generate` with `directMemoriesSource` (consolidation on); poll LRO |
+
+### 16.3 Still open (do not block Milestone 1)
+
+- Production authorization-server product (Okta, Entra, Zitadel, etc.)
+- Whether high-risk workflows may send raw conversation events to Memory Bank
+- Legal hold vs revision TTL
+- Profile field catalog beyond free-form preference keys
 
 ## 17. Milestone 1 acceptance criteria
 
@@ -498,7 +507,7 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 7. MCP `tools/list` includes the five tools; `resources/read` serves the three URIs; 2026-07-28 requests without `Mcp-Method` fail 400
 8. Retrieved memory responses include the untrusted-context notice
 9. Google adapter live tests skip without env; with env they hit v1beta1 and do not use `vi.mock`
-10. Coverage meets 80/80/80/70; Dockerfile present; Terraform skeleton present
+10. Coverage meets 80% lines/functions/statements and 70% branches; Dockerfile present; Terraform skeleton present
 11. Audit log lines contain actor, action, outcome, namespace, optional id — and never fact, query, or token
 
 ## Appendix A — MCP tool surface
