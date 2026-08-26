@@ -10,7 +10,7 @@ import { createAccessTokenProvider, createGoogleMemoryStore } from '@mnem-stewar
 
 import type { GatewayEnv } from './env.js';
 import type { TokenVerifier } from '@mnem-steward/auth';
-import type { MemoryService } from '@mnem-steward/core';
+import type { AuditSink, MemoryService } from '@mnem-steward/core';
 
 export type GatewayDeps = {
   readonly env: GatewayEnv;
@@ -18,12 +18,19 @@ export type GatewayDeps = {
   readonly verifier: TokenVerifier;
 };
 
-export function createGatewayDeps(env: GatewayEnv): GatewayDeps {
+type CreateGatewayDepsOptions = {
+  readonly audit?: AuditSink;
+};
+
+export function createGatewayDeps(
+  env: GatewayEnv,
+  options: CreateGatewayDepsOptions = {},
+): GatewayDeps {
   const clock = systemClock;
   const store = createStore(env);
   const memory = createMemoryService({
     store,
-    audit: createStdoutAuditSink(),
+    audit: options.audit ?? createStdoutAuditSink(),
     clock,
   });
   const verifier = createVerifier(env);

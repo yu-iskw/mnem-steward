@@ -39,3 +39,7 @@ Invoke with `/skill-name` when the skill is installed in this project:
 ## Instruction maintenance
 
 For **when** to capture learnings, **how** to classify improvements, and **where** to edit shared vs Claude-only files, see **`AGENTS.md`** (**Session closure and postmortems**, **Improving agent behavior**). To change **`.claude/`** from Claude Code, use **`/improve-claude-config`**.
+
+## Recent learnings
+
+- 2026-08-26: Local STDIO + `MEMORY_STORE=google` needs `GOOGLE_ACCESS_TOKEN` (no GCE metadata). Preference remembers failed with opaque `unavailable` because GenerateMemories DirectMemory rejects `expireTime` — omit TTL from that payload and log upstream HTTP status when diagnosing store failures.

@@ -10,7 +10,7 @@ Agents need durable personal context, but Google Memory Bank is a managed store 
 
 ## Decision
 
-Own an Enterprise Memory Control Plane in this repository. Expose MCP and REST. Persist through a `MemoryStore` port. Use an in-memory store for local/test and Google Memory Bank v1beta1 for production.
+Own an Enterprise Memory Control Plane in this repository. Expose MCP (Streamable HTTP and STDIO) and REST. Persist through a `MemoryStore` port. Use an in-memory store for local/test and Google Memory Bank v1beta1 for production.
 
 Personal memory is the default namespace. Shared namespaces are typed but denied until an explicit promotion workflow exists.
 

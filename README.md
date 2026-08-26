@@ -46,6 +46,37 @@ curl -s http://127.0.0.1:8080/oauth/token \
 
 MCP endpoint: `POST /mcp`. REST search: `POST /v1/memories:search`.
 
+### Local STDIO MCP (individual IDE clients)
+
+Same tools and `MemoryService` as HTTP. Auth is a bearer JWT in `MNEM_ACCESS_TOKEN` (mint via `POST /oauth/token` above, or a JWKS-issued token).
+
+```bash
+export MNEM_ACCESS_TOKEN='<access_token>'
+pnpm --filter @mnem-steward/gateway mcp:stdio
+```
+
+Cursor `mcp.json` example (paths relative to your checkout):
+
+```json
+{
+  "mcpServers": {
+    "mnem-steward": {
+      "command": "node",
+      "args": ["packages/gateway/dist/stdio-main.js"],
+      "env": {
+        "PUBLIC_BASE_URL": "http://127.0.0.1:8080",
+        "AUTH_MODE": "local",
+        "MEMORY_STORE": "in-memory",
+        "LOCAL_JWT_SECRET": "local-dev-secret-at-least-32-bytes!",
+        "MNEM_ACCESS_TOKEN": "<access_token>"
+      }
+    }
+  }
+}
+```
+
+Build the gateway first (`pnpm --filter @mnem-steward/gateway build`). `MEMORY_STORE=in-memory` is process-local; `google` shares the production Memory Bank with the HTTP gateway. Audit lines go to stderr so they do not corrupt the STDIO wire.
+
 ### Build
 
 ```bash
@@ -70,7 +101,7 @@ pnpm format
 - `packages/core`: Domain model, policy, secret scanning, in-memory store, `MemoryService`
 - `packages/auth`: OAuth 2.1 resource-server JWT helpers and RFC 9728 metadata
 - `packages/google-memory`: Google Memory Bank v1beta1 adapter
-- `packages/gateway`: Cloud Run Hono process (REST + MCP)
+- `packages/gateway`: Cloud Run Hono process (REST + MCP HTTP/STDIO)
 - `packages/sdk`: TypeScript REST client
 - `docs/rfc`: Accepted RFC
 - `infra/terraform`: Cloud Run skeleton

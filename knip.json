@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignore": [".trunk/**"],
   "ignoreBinaries": ["grype"],
   "workspaces": {
     ".": {
@@ -23,7 +24,7 @@
       "project": ["src/**/*.ts"]
     },
     "packages/gateway": {
-      "entry": ["src/main.ts", "src/create-app.ts"],
+      "entry": ["src/main.ts", "src/stdio-main.ts", "src/create-app.ts"],
       "project": ["src/**/*.ts"]
     }
   }

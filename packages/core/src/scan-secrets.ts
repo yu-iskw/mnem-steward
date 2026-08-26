@@ -9,7 +9,7 @@ const SECRET_RULES: readonly { readonly rule: string; readonly pattern: RegExp }
   { rule: 'slack-token', pattern: /\bxox[baprs]-[\w-]{10,}\b/u },
   {
     rule: 'slack-webhook',
-    pattern: /https:\/\/hooks\.slack\.com\/services\/T[\dA-Z]+\/B[\dA-Z]+\/[\w-]+/u,
+    pattern: /(?:^|[\s"'=(<])https:\/\/hooks\.slack\.com\/services\/T[\dA-Z]+\/B[\dA-Z]+\/[\w-]+/u,
   },
   { rule: 'openai-key', pattern: /\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b/u },
   { rule: 'google-api-key', pattern: /\bAIza[\w-]{35}\b/u },

@@ -44,12 +44,13 @@ describe('google memory mapping', () => {
     });
     expect(body['scope']).toEqual({ namespace: 'personal', principal_id: actor.id });
     const source = body['directMemoriesSource'] as {
-      directMemories: { expireTime: string; fact: string }[];
+      directMemories: { expireTime?: string; fact: string }[];
     };
-    expect(source.directMemories[0]?.expireTime).toBe('2026-08-26T12:00:00.000Z');
+    expect(source.directMemories[0]?.expireTime).toBeUndefined();
     expect(source.directMemories[0]?.fact).toBe(
       'preference|internal: preferred_package_manager: pnpm',
     );
+    expect(body['revisionExpireTime']).toBe('2026-08-26T12:00:00.000Z');
     expect(memoryBankParent({ project: 'p', location: 'eu', reasoningEngineId: 'eng' })).toContain(
       'reasoningEngines/eng',
     );
@@ -63,6 +64,7 @@ describe('google memory mapping', () => {
   it('returns unavailable when the injected HTTP client fails', async () => {
     const store = createGoogleMemoryStore({
       config: { project: 'p', location: 'eu', reasoningEngineId: 'eng' },
+      logError: () => undefined,
       http: {
         fetch() {
           return Promise.resolve(new Response('nope', { status: 500 }));
@@ -164,12 +166,20 @@ describe('google memory mapping', () => {
           {
             name: 'projects/p/locations/eu/reasoningEngines/eng/memories/abc/revisions/r1',
             createTime: '2026-08-25T12:00:00Z',
+            fact: 'preference|internal: still here',
+          },
+          {
+            name: 'projects/p/locations/eu/reasoningEngines/eng/memories/abc/revisions/r2',
+            createTime: '2026-08-25T13:00:00Z',
+            fact: '',
           },
         ],
       },
       'abc',
     );
     expect(revisions[0]?.revisionId).toBe('r1');
+    expect(revisions[0]?.action).toBe('updated');
+    expect(revisions[1]?.action).toBe('deleted');
     const profile = parseProfile(
       { profiles: { 'employee-agent': { schemaId: 'employee-agent', profile: { lang: 'ts' } } } },
       actor,
@@ -305,6 +315,7 @@ describe('google memory store with injected HTTP', () => {
                 done: true,
                 generatedMemories: [
                   {
+                    action: 'CREATED',
                     memory: {
                       name: 'projects/p/locations/eu/reasoningEngines/eng/memories/mem1',
                     },
@@ -343,6 +354,233 @@ describe('google memory store with injected HTTP', () => {
     expect(remembered.fact).toBe('polled');
   });
 
+  it('prefers CREATED over DELETED when both appear in generate response', async () => {
+    const gets: string[] = [];
+    const store = createGoogleMemoryStore({
+      config: { project: 'p', location: 'eu', reasoningEngineId: 'eng' },
+      http: {
+        fetch(url: string, init?: RequestInit) {
+          const method = init?.method ?? 'GET';
+          if (url.endsWith(':generate') && method === 'POST') {
+            return Promise.resolve(
+              json({
+                done: true,
+                generatedMemories: [
+                  {
+                    action: 'DELETED',
+                    memory: {
+                      name: 'projects/p/locations/eu/reasoningEngines/eng/memories/old',
+                    },
+                  },
+                  {
+                    action: 'CREATED',
+                    memory: {
+                      name: 'projects/p/locations/eu/reasoningEngines/eng/memories/new',
+                    },
+                  },
+                ],
+              }),
+            );
+          }
+          if (method === 'GET') {
+            gets.push(url);
+            if (url.endsWith('/memories/new')) {
+              return Promise.resolve(
+                json({
+                  name: 'projects/p/locations/eu/reasoningEngines/eng/memories/new',
+                  fact: 'fact|internal: replacement',
+                  scope: { namespace: 'personal', principal_id: actor.id },
+                }),
+              );
+            }
+            return Promise.resolve(json({}, 404));
+          }
+          return Promise.resolve(json({}, 404));
+        },
+      },
+      tokens: {
+        getAccessToken() {
+          return Promise.resolve('token');
+        },
+      },
+    });
+    const remembered = await store.remember({
+      principal: actor,
+      context: 'personal',
+      kind: 'fact',
+      classification: 'internal',
+      fact: 'replacement',
+    });
+    expect(remembered.id).toBe('new');
+    expect(gets.some((url) => url.endsWith('/memories/old'))).toBe(false);
+    expect(gets.some((url) => url.endsWith('/memories/new'))).toBe(true);
+  });
+
+  it('returns input-shaped record for DELETED-only generate without GET', async () => {
+    const gets: string[] = [];
+    const store = createGoogleMemoryStore({
+      config: { project: 'p', location: 'eu', reasoningEngineId: 'eng' },
+      http: {
+        fetch(url: string, init?: RequestInit) {
+          const method = init?.method ?? 'GET';
+          if (url.endsWith(':generate') && method === 'POST') {
+            return Promise.resolve(
+              json({
+                done: true,
+                generatedMemories: [
+                  {
+                    action: 'DELETED',
+                    memory: {
+                      name: 'projects/p/locations/eu/reasoningEngines/eng/memories/gone',
+                    },
+                  },
+                ],
+              }),
+            );
+          }
+          if (method === 'GET') {
+            gets.push(url);
+            return Promise.resolve(json({}, 404));
+          }
+          return Promise.resolve(json({}, 404));
+        },
+      },
+      tokens: {
+        getAccessToken() {
+          return Promise.resolve('token');
+        },
+      },
+    });
+    const remembered = await store.remember({
+      principal: actor,
+      context: 'personal',
+      kind: 'preference',
+      classification: 'internal',
+      fact: 'forget me',
+      ttl: { expireAt: '2026-08-26T12:00:00.000Z' },
+    });
+    expect(remembered.id).toBe('gone');
+    expect(remembered.fact).toBe('forget me');
+    expect(remembered.expireAt).toBe('2026-08-26T12:00:00.000Z');
+    expect(gets).toEqual([]);
+  });
+
+  it('PATCHes expireTime after create and logs HTTP errors without leaking to callers', async () => {
+    const logs: string[] = [];
+    let patched = false;
+    const store = createGoogleMemoryStore({
+      config: { project: 'p', location: 'eu', reasoningEngineId: 'eng' },
+      sleep: () => Promise.resolve(),
+      logError: (message) => {
+        logs.push(message);
+      },
+      http: {
+        fetch(url: string, init?: RequestInit) {
+          const method = init?.method ?? 'GET';
+          if (url.endsWith(':generate') && method === 'POST') {
+            const text = typeof init?.body === 'string' ? init.body : '{}';
+            const parsed = JSON.parse(text) as {
+              directMemoriesSource?: { directMemories?: { expireTime?: string }[] };
+            };
+            expect(parsed.directMemoriesSource?.directMemories?.[0]?.expireTime).toBeUndefined();
+            return Promise.resolve(
+              json({
+                done: true,
+                generatedMemories: [
+                  {
+                    action: 'CREATED',
+                    memory: {
+                      name: 'projects/p/locations/eu/reasoningEngines/eng/memories/mem1',
+                    },
+                  },
+                ],
+              }),
+            );
+          }
+          if (method === 'PATCH' && url.includes('updateMask=expireTime')) {
+            patched = true;
+            const text = typeof init?.body === 'string' ? init.body : '{}';
+            expect(JSON.parse(text)).toEqual({ expireTime: '2026-08-26T12:00:00.000Z' });
+            return Promise.resolve(
+              json({
+                done: true,
+                response: {
+                  name: 'projects/p/locations/eu/reasoningEngines/eng/memories/mem1',
+                  fact: 'preference|internal: preferred_ide: Cursor',
+                  expireTime: '2026-08-26T12:00:00.000Z',
+                  scope: { namespace: 'personal', principal_id: actor.id },
+                },
+              }),
+            );
+          }
+          if (url.endsWith('/memories/mem1') && method === 'GET') {
+            return Promise.resolve(
+              json({
+                name: 'projects/p/locations/eu/reasoningEngines/eng/memories/mem1',
+                fact: 'preference|internal: preferred_ide: Cursor',
+                expireTime: patched ? '2026-08-26T12:00:00.000Z' : undefined,
+                scope: { namespace: 'personal', principal_id: actor.id },
+              }),
+            );
+          }
+          return Promise.resolve(json({}, 404));
+        },
+      },
+      tokens: {
+        getAccessToken() {
+          return Promise.resolve('token');
+        },
+      },
+    });
+    const remembered = await store.remember({
+      principal: actor,
+      context: 'personal',
+      kind: 'preference',
+      classification: 'internal',
+      fact: 'preferred_ide: Cursor',
+      ttl: { expireAt: '2026-08-26T12:00:00.000Z' },
+    });
+    expect(patched).toBe(true);
+    expect(remembered.expireAt).toBe('2026-08-26T12:00:00.000Z');
+
+    const failing = createGoogleMemoryStore({
+      config: { project: 'p', location: 'eu', reasoningEngineId: 'eng' },
+      logError: (message) => {
+        logs.push(message);
+      },
+      http: {
+        fetch() {
+          return Promise.resolve(
+            json(
+              {
+                error: {
+                  message: 'Invalid JSON payload received. Unknown name "expireTime"',
+                },
+              },
+              400,
+            ),
+          );
+        },
+      },
+      tokens: {
+        getAccessToken() {
+          return Promise.resolve('token');
+        },
+      },
+    });
+    await expect(
+      failing.remember({
+        principal: actor,
+        context: 'personal',
+        kind: 'fact',
+        classification: 'internal',
+        fact: 'boom',
+      }),
+    ).rejects.toThrow(/google-memory-http-400/u);
+    expect(logs.some((line) => line.includes('google-memory-http-400'))).toBe(true);
+    expect(logs.some((line) => line.includes('Unknown name'))).toBe(true);
+  });
+
   it('skips live configuration unless env is present', () => {
     expect(isGoogleMemoryConfigured({})).toBe(false);
     expect(
@@ -376,17 +614,33 @@ function createFakeMemoryBank(): { fetch: (url: string, init?: RequestInit) => P
           scope?: { namespace: string; principal_id?: string };
           directMemoriesSource?: { directMemories?: { fact: string; expireTime?: string }[] };
         };
+        expect(parsed.directMemoriesSource?.directMemories?.[0]?.expireTime).toBeUndefined();
         const fact = parsed.directMemoriesSource?.directMemories?.[0]?.fact ?? 'fact: unknown';
         memories.set(name, {
           name,
           fact,
           scope: parsed.scope,
-          expireTime: parsed.directMemoriesSource?.directMemories?.[0]?.expireTime,
         });
         return Promise.resolve(
           json({
             done: true,
             generatedMemories: [{ memory: { name }, action: 'CREATED' }],
+          }),
+        );
+      }
+      if (method === 'PATCH' && url.includes('updateMask=expireTime')) {
+        const existing = [...memories.values()].find((item) => url.includes(item.name));
+        if (existing === undefined) {
+          return Promise.resolve(json({}, 404));
+        }
+        const rawBody = init?.body;
+        const text = typeof rawBody === 'string' ? rawBody : '{}';
+        const parsed = JSON.parse(text) as { expireTime?: string };
+        existing.expireTime = parsed.expireTime;
+        return Promise.resolve(
+          json({
+            done: true,
+            response: { ...existing },
           }),
         );
       }
@@ -414,7 +668,11 @@ function createFakeMemoryBank(): { fetch: (url: string, init?: RequestInit) => P
         return Promise.resolve(
           json({
             memoryRevisions: [
-              { name: `${existing.name}/revisions/r1`, createTime: '2026-08-25T12:00:00Z' },
+              {
+                name: `${existing.name}/revisions/r1`,
+                createTime: '2026-08-25T12:00:00Z',
+                fact: existing.fact,
+              },
             ],
           }),
         );
