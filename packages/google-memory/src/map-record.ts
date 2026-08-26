@@ -20,8 +20,10 @@ type JsonObject = { readonly [key: string]: unknown };
 
 export function generateMemoriesBody(input: RememberInput): JsonObject {
   const scope = toMemoryBankScope(input.context, input.principal);
-  // Memory Bank GenerateMemories DirectMemory does not accept expireTime; TTL is applied
-  // server-side later via memory resource updates if needed.
+  // DirectMemory accepts only `fact` (proto). Memory TTL is applied via PATCH after generate.
+  // revisionExpireTime expires revision snapshots only (default 365d), not the Memory resource.
+  const revisionExpireTime =
+    input.ttl !== undefined && 'expireAt' in input.ttl ? input.ttl.expireAt : undefined;
   return {
     scope,
     directMemoriesSource: {
@@ -31,7 +33,75 @@ export function generateMemoriesBody(input: RememberInput): JsonObject {
         },
       ],
     },
+    ...(revisionExpireTime === undefined ? {} : { revisionExpireTime }),
   };
+}
+
+export type GeneratedMemoryAction = 'CREATED' | 'UPDATED' | 'DELETED';
+
+export type ParsedGeneratedMemory = {
+  readonly name: string;
+  readonly action: GeneratedMemoryAction;
+};
+
+/**
+ * Prefer CREATED, then UPDATED. DELETED-only is returned so the store can skip GET (404).
+ */
+export function parseGeneratedMemories(body: unknown): readonly ParsedGeneratedMemory[] {
+  const root = unwrapGenerateResponse(body);
+  if (root === undefined) {
+    return [];
+  }
+  const generated = root['generatedMemories'];
+  if (!Array.isArray(generated)) {
+    return [];
+  }
+  const parsed: ParsedGeneratedMemory[] = [];
+  for (const item of generated) {
+    if (!isObject(item)) {
+      continue;
+    }
+    const memory = item['memory'];
+    const name =
+      isObject(memory) && typeof memory['name'] === 'string' ? memory['name'] : undefined;
+    if (name === undefined) {
+      continue;
+    }
+    parsed.push({ name, action: normalizeGeneratedAction(item['action']) });
+  }
+  return parsed;
+}
+
+export function selectLiveGeneratedMemory(
+  memories: readonly ParsedGeneratedMemory[],
+): ParsedGeneratedMemory | undefined {
+  const created = memories.find((item) => item.action === 'CREATED');
+  if (created !== undefined) {
+    return created;
+  }
+  return memories.find((item) => item.action === 'UPDATED');
+}
+
+export function memoryRecordFromDeletedGenerate(name: string, input: RememberInput): MemoryRecord {
+  const id = name.split('/').at(-1) ?? name;
+  const now = new Date().toISOString();
+  const expireAt =
+    input.ttl !== undefined && 'expireAt' in input.ttl ? input.ttl.expireAt : undefined;
+  return {
+    id,
+    kind: input.kind,
+    namespace: 'personal',
+    principalId: input.principal.id,
+    classification: input.classification,
+    fact: input.fact,
+    createdAt: now,
+    updatedAt: now,
+    expireAt,
+  };
+}
+
+export function patchExpireTimeBody(expireAt: string): JsonObject {
+  return { expireTime: expireAt };
 }
 
 export function retrieveMemoriesBody(query: MemorySearchQuery): JsonObject {
@@ -56,19 +126,14 @@ export function retrieveProfilesBody(principal: Principal): JsonObject {
   return { scope: toMemoryBankScope('personal', principal) };
 }
 
+/** @deprecated Prefer parseGeneratedMemories + selectLiveGeneratedMemory */
 export function parseGeneratedMemoryName(body: unknown): string | undefined {
-  if (!isObject(body)) {
-    return undefined;
+  const live = selectLiveGeneratedMemory(parseGeneratedMemories(body));
+  if (live !== undefined) {
+    return live.name;
   }
-  const generated = body['generatedMemories'];
-  if (!Array.isArray(generated) || generated[0] === undefined || !isObject(generated[0])) {
-    return memoryNameFrom(body);
-  }
-  const memory = generated[0]['memory'];
-  if (isObject(memory) && typeof memory['name'] === 'string') {
-    return memory['name'];
-  }
-  return memoryNameFrom(body);
+  const deleted = parseGeneratedMemories(body).find((item) => item.action === 'DELETED');
+  return deleted?.name;
 }
 
 export function parseRetrievedMemories(
@@ -144,11 +209,15 @@ export function parseRevisions(body: unknown, memoryId: string): MemoryRevision[
     const revisionId = name.split('/').at(-1) ?? name;
     const updatedAt =
       typeof item['createTime'] === 'string' ? item['createTime'] : new Date(0).toISOString();
+    // Deletion snapshots have an empty fact (Memory Bank revisions docs).
+    const fact = typeof item['fact'] === 'string' ? item['fact'] : undefined;
+    const action: MemoryRevision['action'] =
+      fact !== undefined && fact.trim() === '' ? 'deleted' : 'updated';
     revisions.push({
       revisionId,
       memoryId,
       updatedAt,
-      action: 'updated',
+      action,
     });
   }
   return revisions;
@@ -216,10 +285,28 @@ function persistableClassification(value: string): Classification | undefined {
   return parsed;
 }
 
-function memoryNameFrom(body: JsonObject): string | undefined {
-  const response = body['response'];
-  if (isObject(response)) {
-    return parseGeneratedMemoryName(response);
+function unwrapGenerateResponse(body: unknown): JsonObject | undefined {
+  if (!isObject(body)) {
+    return undefined;
   }
-  return undefined;
+  if (Array.isArray(body['generatedMemories'])) {
+    return body;
+  }
+  const response = body['response'];
+  if (isObject(response) && Array.isArray(response['generatedMemories'])) {
+    return response;
+  }
+  return isObject(body) ? body : undefined;
+}
+
+function normalizeGeneratedAction(value: unknown): GeneratedMemoryAction {
+  switch (value) {
+    case 'CREATED':
+    case 'UPDATED':
+    case 'DELETED':
+      return value;
+    default:
+      // Older fixtures omit action; treat as CREATED so GET still runs.
+      return 'CREATED';
+  }
 }

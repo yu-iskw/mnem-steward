@@ -1,11 +1,7 @@
 import { PassThrough } from 'node:stream';
 
 import { issueLocalAccessToken } from '@mnem-steward/auth';
-import {
-  createInMemoryAuditSink,
-  createStdoutAuditSink,
-  OAUTH_SCOPES,
-} from '@mnem-steward/core';
+import { createInMemoryAuditSink, createStdoutAuditSink, OAUTH_SCOPES } from '@mnem-steward/core';
 import { describe, expect, it } from 'vitest';
 
 import { createGatewayDeps } from './create-deps.js';
@@ -33,12 +29,12 @@ async function testPrincipal(subject = 'alice'): Promise<{
 }> {
   const env = testEnv();
   const deps = createGatewayDeps(env);
-  const secret = env.localJwtSecret;
-  if (secret === undefined) {
+  const localJwt = env.localJwtSecret;
+  if (localJwt === undefined) {
     throw new Error('expected local JWT secret');
   }
   const token = await issueLocalAccessToken({
-    secret,
+    secret: localJwt,
     issuer: env.tokenIssuer,
     audience: env.tokenAudience,
     subject,
@@ -109,12 +105,12 @@ describe('stdio MCP', () => {
         auditLines.push(String(line));
       }),
     });
-    const secret = env.localJwtSecret;
-    if (secret === undefined) {
+    const localJwt = env.localJwtSecret;
+    if (localJwt === undefined) {
       throw new Error('expected local JWT secret');
     }
     const token = await issueLocalAccessToken({
-      secret,
+      secret: localJwt,
       issuer: env.tokenIssuer,
       audience: env.tokenAudience,
       subject: 'stdio-user',
@@ -227,12 +223,12 @@ describe('createGatewayDeps audit injection', () => {
     const audit = createInMemoryAuditSink();
     const env = testEnv();
     const deps = createGatewayDeps(env, { audit });
-    const secret = env.localJwtSecret;
-    if (secret === undefined) {
+    const localJwt = env.localJwtSecret;
+    if (localJwt === undefined) {
       throw new Error('expected local JWT secret');
     }
     const token = await issueLocalAccessToken({
-      secret,
+      secret: localJwt,
       issuer: env.tokenIssuer,
       audience: env.tokenAudience,
       subject: 'audit',

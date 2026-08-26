@@ -473,13 +473,13 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 
 ### 16.2 Closed in this revision (were open in the first Accepted draft)
 
-| Topic                    | Decision                                                                                                  |
-| ------------------------ | --------------------------------------------------------------------------------------------------------- |
-| Local token grant        | `POST /oauth/token` JSON `{ "grant_type": "client_credentials", "sub": string, "scope": string }` (HS256) |
-| Non-personal context     | Error code `namespace_denied`                                                                             |
-| `employee-agent` profile | Versioned JSON object; preference/identity facts matching `key: value` or `key=value` update fields       |
-| Audit sink               | Stdout JSON lines in the gateway; `InMemoryAuditSink` in tests                                            |
-| Google `remember`        | `POST .../memories:generate` with `directMemoriesSource` (consolidation on); poll LRO                     |
+| Topic                    | Decision                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local token grant        | `POST /oauth/token` JSON `{ "grant_type": "client_credentials", "sub": string, "scope": string }` (HS256)                                                                                                                                                                                                                                                                                                 |
+| Non-personal context     | Error code `namespace_denied`                                                                                                                                                                                                                                                                                                                                                                             |
+| `employee-agent` profile | Versioned JSON object; preference/identity facts matching `key: value` or `key=value` update fields                                                                                                                                                                                                                                                                                                       |
+| Audit sink               | Stdout JSON lines in the gateway; `InMemoryAuditSink` in tests                                                                                                                                                                                                                                                                                                                                            |
+| Google `remember`        | `POST .../memories:generate` with `directMemoriesSource` (consolidation on); poll LRO. DirectMemory has no `expireTime` (proto/live 400); Memory TTL via PATCH `expireTime` when the API accepts `updateMask=expireTime`, else control-plane `expireAt` only. Prefer `CREATED`/`UPDATED` over `DELETED` (GET of deleted is 404). `IntermediateExtractedMemory` is revision inspect-only, not a write API. |
 
 ### 16.3 Still open (do not block Milestone 1)
 
@@ -514,19 +514,19 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 
 ## Appendix B — Environment variables
 
-| Variable                     | Required                  | Purpose                                  |
-| ---------------------------- | ------------------------- | ---------------------------------------- |
-| `PORT`                       | Cloud Run                 | Listen port                              |
-| `AUTH_MODE`                  | yes                       | `local` or `jwks`                        |
-| `PUBLIC_BASE_URL`            | yes                       | Resource identifier / PRM URLs           |
-| `AUTH_ISSUER`                | `jwks`                    | Expected `iss`                           |
-| `AUTH_AUDIENCE`              | `jwks`                    | Expected `aud` (resource id)             |
-| `AUTH_JWKS_URL`              | `jwks`                    | JWKS endpoint                            |
-| `LOCAL_JWT_SECRET`           | `local`                   | HS256 key                                |
-| `MEMORY_STORE`               | yes                       | `in-memory` or `google`                  |
-| `GOOGLE_CLOUD_PROJECT`       | Google store / live tests | GCP project                              |
-| `GOOGLE_CLOUD_LOCATION`      | Google store / live tests | Regional location (not `global` in prod) |
-| `GOOGLE_REASONING_ENGINE_ID` | Google store / live tests | Standalone Memory Bank engine id         |
+| Variable                     | Required                  | Purpose                                     |
+| ---------------------------- | ------------------------- | ------------------------------------------- |
+| `PORT`                       | Cloud Run                 | Listen port                                 |
+| `AUTH_MODE`                  | yes                       | `local` or `jwks`                           |
+| `PUBLIC_BASE_URL`            | yes                       | Resource identifier / PRM URLs              |
+| `AUTH_ISSUER`                | `jwks`                    | Expected `iss`                              |
+| `AUTH_AUDIENCE`              | `jwks`                    | Expected `aud` (resource id)                |
+| `AUTH_JWKS_URL`              | `jwks`                    | JWKS endpoint                               |
+| `LOCAL_JWT_SECRET`           | `local`                   | HS256 key                                   |
+| `MEMORY_STORE`               | yes                       | `in-memory` or `google`                     |
+| `GOOGLE_CLOUD_PROJECT`       | Google store / live tests | GCP project                                 |
+| `GOOGLE_CLOUD_LOCATION`      | Google store / live tests | Regional location (not `global` in prod)    |
+| `GOOGLE_REASONING_ENGINE_ID` | Google store / live tests | Standalone Memory Bank engine id            |
 | `MNEM_ACCESS_TOKEN`          | STDIO MCP                 | Bearer JWT verified like HTTP Authorization |
 
 ## Appendix C — Decision log
