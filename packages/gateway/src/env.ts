@@ -1,5 +1,8 @@
 import { googleMemoryConfigFromEnv, isGoogleMemoryConfigured } from '@mnem-steward/google-memory';
 
+import { parseMcpProfiles } from './mcp/profiles.js';
+
+import type { McpProfileId } from './mcp/profiles.js';
 import type { GoogleMemoryConfig } from '@mnem-steward/google-memory';
 
 export type AuthMode = 'local' | 'jwks';
@@ -15,6 +18,7 @@ export type GatewayEnv = {
   readonly localJwtSecret: Uint8Array | undefined;
   readonly jwksUrl: string | undefined;
   readonly google: GoogleMemoryConfig | undefined;
+  readonly mcpProfiles: readonly McpProfileId[];
 };
 
 export function parseEnv(env: Record<string, string | undefined>): GatewayEnv {
@@ -40,6 +44,7 @@ export function parseEnv(env: Record<string, string | undefined>): GatewayEnv {
         : undefined,
     jwksUrl: authMode === 'jwks' ? required(env['AUTH_JWKS_URL'], 'AUTH_JWKS_URL') : undefined,
     google: memoryStore === 'google' ? googleConfig(env) : undefined,
+    mcpProfiles: parseMcpProfiles(env['MNEM_STEWARD_MCP_PROFILES']),
   };
 }
 

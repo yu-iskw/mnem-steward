@@ -11,7 +11,7 @@ import type { OAuthScope, Principal } from '@mnem-steward/core';
 export type LocalIssuerConfig = {
   readonly secret: Uint8Array;
   readonly issuer: string;
-  readonly audience: string;
+  readonly audience: string | readonly string[];
 };
 
 export type TokenVerifier = {
@@ -51,7 +51,7 @@ export function createLocalHs256Verifier(config: LocalIssuerConfig): TokenVerifi
 export function createRemoteJwksVerifier(input: {
   jwksUrl: string;
   issuer: string;
-  audience: string;
+  audience: string | readonly string[];
 }): TokenVerifier {
   return createJwtVerifier(createRemoteJWKSet(new URL(input.jwksUrl)), {
     issuer: input.issuer,
@@ -62,6 +62,7 @@ export function createRemoteJwksVerifier(input: {
 export function buildProtectedResourceMetadata(input: {
   resource: string;
   authorizationServers: readonly string[];
+  scopesSupported?: readonly OAuthScope[];
 }): {
   resource: string;
   authorization_servers: readonly string[];
@@ -72,7 +73,34 @@ export function buildProtectedResourceMetadata(input: {
     resource: input.resource,
     authorization_servers: input.authorizationServers,
     bearer_methods_supported: ['header'],
-    scopes_supported: OAUTH_SCOPES,
+    scopes_supported: input.scopesSupported ?? OAUTH_SCOPES,
+  };
+}
+
+/**
+ * RFC 9728 §3.1: insert `/.well-known/oauth-protected-resource` between the
+ * host and any path/query of the protected resource identifier.
+ */
+export function protectedResourceMetadataPath(resourceUrl: string): string {
+  const { pathSuffix } = wellKnownParts(resourceUrl);
+  return `/.well-known/oauth-protected-resource${pathSuffix}`;
+}
+
+export function protectedResourceMetadataUrl(resourceUrl: string): string {
+  const { origin, pathSuffix } = wellKnownParts(resourceUrl);
+  return `${origin}/.well-known/oauth-protected-resource${pathSuffix}`;
+}
+
+function wellKnownParts(resourceUrl: string): { origin: string; pathSuffix: string } {
+  let url: URL;
+  try {
+    url = new URL(resourceUrl);
+  } catch {
+    throw new Error(`Invalid protected resource URL: ${resourceUrl}`);
+  }
+  return {
+    origin: url.origin,
+    pathSuffix: `${url.pathname === '/' ? '' : url.pathname}${url.search}`,
   };
 }
 
@@ -97,13 +125,17 @@ export function buildAuthorizationServerMetadata(input: {
 
 function createJwtVerifier(
   key: Parameters<typeof jwtVerify>[1],
-  options: { issuer: string; audience: string; algorithms?: string[] },
+  options: { issuer: string; audience: string | readonly string[]; algorithms?: string[] },
 ): TokenVerifier {
   return {
     async verify(authorizationHeader: string | undefined): Promise<Principal> {
       const token = bearerToken(authorizationHeader);
       try {
-        const { payload } = await jwtVerify(token, key, options);
+        const { payload } = await jwtVerify(token, key, {
+          issuer: options.issuer,
+          audience: [...asAudienceList(options.audience)],
+          algorithms: options.algorithms,
+        });
         return principalFromPayload(payload.iss ?? options.issuer, payload.sub, payload['scope']);
       } catch (error) {
         if (error instanceof MemoryDomainError) {
@@ -113,6 +145,10 @@ function createJwtVerifier(
       }
     },
   };
+}
+
+function asAudienceList(audience: string | readonly string[]): readonly string[] {
+  return typeof audience === 'string' ? [audience] : audience;
 }
 
 function bearerToken(authorizationHeader: string | undefined): string {

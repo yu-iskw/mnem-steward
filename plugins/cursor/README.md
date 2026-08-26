@@ -2,10 +2,18 @@
 
 ## Remote MCP (Streamable HTTP)
 
-Configure a remote MCP server for this repository:
+Configure a remote MCP server for this repository. Prefer the **reader** profile for coding agents:
 
-- URL: `{PUBLIC_BASE_URL}/mcp`
-- Auth: OAuth 2.1 resource server (RFC 9728 metadata at `/.well-known/oauth-protected-resource/mcp`)
+- URL: `{PUBLIC_BASE_URL}/memory-reader/v1/mcp`
+- Auth: OAuth 2.1 resource server (RFC 9728 metadata at `/.well-known/oauth-protected-resource/memory-reader/v1/mcp`)
+
+Other profiles:
+
+| Job              | URL                         | Tools                         |
+| ---------------- | --------------------------- | ----------------------------- |
+| Recall only      | `/memory-reader/v1/mcp`     | search, profile get           |
+| Persist facts    | `/memory-steward/v1/mcp`    | search, profile get, remember |
+| Forget / history | `/memory-governance/v1/mcp` | forget, history               |
 
 Local development (HTTP gateway):
 

@@ -7,12 +7,23 @@ import {
 import { jsonRpcError, parseJsonRpc } from '../mcp/json-rpc.js';
 
 import type { MemoryApp } from '../app-env.js';
+import type { McpProfile, McpProfileMount } from '../mcp/profiles.js';
 import type { MemoryService } from '@mnem-steward/core';
 
-export function mountMcp(app: MemoryApp, memory: MemoryService): void {
-  app.get('/mcp', (context) => context.body('Method Not Allowed', 405));
+export function mountMcp(
+  app: MemoryApp,
+  memory: MemoryService,
+  mounts: readonly McpProfileMount[],
+): void {
+  for (const mount of mounts) {
+    mountProfile(app, memory, mount.profile);
+  }
+}
 
-  app.post('/mcp', async (context) => {
+function mountProfile(app: MemoryApp, memory: MemoryService, profile: McpProfile): void {
+  app.get(profile.path, (context) => context.body('Method Not Allowed', 405));
+
+  app.post(profile.path, async (context) => {
     const origin = context.req.header('Origin');
     if (origin !== undefined && !isAllowedOrigin(origin, context.req.url)) {
       return context.json({ error: 'forbidden', message: 'Invalid Origin' }, 403);
@@ -36,6 +47,7 @@ export function mountMcp(app: MemoryApp, memory: MemoryService): void {
       memory,
       principal: context.get('principal'),
       protocolVersion,
+      profile,
     });
 
     switch (outcome.type) {

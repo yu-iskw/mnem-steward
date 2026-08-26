@@ -50,3 +50,17 @@ export function jsonRpcError(
     error: data === undefined ? { code, message } : { code, message, data },
   };
 }
+
+export class JsonRpcCodedError extends Error {
+  readonly jsonRpcCode: number;
+
+  constructor(jsonRpcCode: number, message: string) {
+    super(message);
+    this.name = 'JsonRpcCodedError';
+    this.jsonRpcCode = jsonRpcCode;
+  }
+}
+
+export function isJsonRpcCodedError(error: unknown): error is JsonRpcCodedError {
+  return error instanceof JsonRpcCodedError;
+}

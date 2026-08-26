@@ -1,3 +1,4 @@
+import { protectedResourceMetadataUrl } from '@mnem-steward/auth';
 import { isMemoryDomainError } from '@mnem-steward/core';
 import { Hono } from 'hono';
 
@@ -12,12 +13,14 @@ import type { GatewayDeps } from './create-deps.js';
 
 export function createApp(deps: GatewayDeps): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
+  const restMetadataUrl = protectedResourceMetadataUrl(deps.env.publicBaseUrl);
 
   app.onError((error, context) => {
     if (isMemoryDomainError(error)) {
       const status = domainErrorStatus(error);
       if (status === 401) {
-        context.header('WWW-Authenticate', wwwAuthenticate(deps.env.publicBaseUrl));
+        const metadataUrl = context.get('resourceMetadataUrl') ?? restMetadataUrl;
+        context.header('WWW-Authenticate', wwwAuthenticate(metadataUrl));
       }
       return context.json({ error: error.code, message: error.message }, status);
     }
@@ -26,9 +29,11 @@ export function createApp(deps: GatewayDeps): Hono<AppEnv> {
 
   app.get('/healthz', (context) => context.json({ status: 'ok' }));
   mountOauth(app, deps);
-  app.use('/v1/*', requireAuth(deps.verifier));
-  app.use('/mcp', requireAuth(deps.verifier));
+  app.use('/v1/*', requireAuth(deps.verifier, restMetadataUrl));
+  for (const mount of deps.mcpMounts) {
+    app.use(mount.profile.path, requireAuth(deps.verifier, mount.metadataUrl));
+  }
   mountRest(app, deps.memory);
-  mountMcp(app, deps.memory);
+  mountMcp(app, deps.memory, deps.mcpMounts);
   return app;
 }

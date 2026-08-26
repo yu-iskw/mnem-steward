@@ -5,6 +5,8 @@ import {
   buildProtectedResourceMetadata,
   createLocalHs256Verifier,
   issueLocalAccessToken,
+  protectedResourceMetadataPath,
+  protectedResourceMetadataUrl,
 } from './index.js';
 
 const SECRET = new TextEncoder().encode('local-dev-secret-at-least-32-bytes!');
@@ -49,20 +51,59 @@ describe('local HS256 tokens', () => {
     });
     await expect(verifier.verify(`Bearer ${token}`)).rejects.toThrow();
   });
+
+  it('accepts any audience in a configured allowlist', async () => {
+    const profileAudience = `${AUDIENCE}/memory-reader/v1/mcp`;
+    const verifier = createLocalHs256Verifier({
+      secret: SECRET,
+      issuer: ISSUER,
+      audience: [AUDIENCE, profileAudience],
+    });
+    const token = await issueLocalAccessToken({
+      secret: SECRET,
+      issuer: ISSUER,
+      audience: profileAudience,
+      subject: 'alice',
+      scopes: ['memory.read'],
+    });
+    const principal = await verifier.verify(`Bearer ${token}`);
+    expect(principal.subject).toBe('alice');
+  });
 });
 
 describe('metadata documents', () => {
   it('builds RFC 9728 and RFC 8414 documents', () => {
+    const resource = `${AUDIENCE}/memory-reader/v1/mcp`;
     const prm = buildProtectedResourceMetadata({
-      resource: `${AUDIENCE}/mcp`,
+      resource,
       authorizationServers: [ISSUER],
+      scopesSupported: ['memory.read', 'memory.profile.read'],
     });
     expect(prm.bearer_methods_supported).toEqual(['header']);
-    expect(prm.resource).toBe(`${AUDIENCE}/mcp`);
+    expect(prm.resource).toBe(resource);
+    expect(prm.scopes_supported).toEqual(['memory.read', 'memory.profile.read']);
     const as = buildAuthorizationServerMetadata({
       issuer: ISSUER,
       tokenEndpoint: `${ISSUER}/oauth/token`,
     });
     expect(as.grant_types_supported).toEqual(['client_credentials']);
+  });
+
+  it('inserts the well-known path per RFC 9728', () => {
+    expect(protectedResourceMetadataPath(`${AUDIENCE}/memory-reader/v1/mcp`)).toBe(
+      '/.well-known/oauth-protected-resource/memory-reader/v1/mcp',
+    );
+    expect(protectedResourceMetadataPath(`${AUDIENCE}/`)).toBe(
+      '/.well-known/oauth-protected-resource',
+    );
+    expect(protectedResourceMetadataPath(`${AUDIENCE}/memory-reader/v1/mcp/?v=1`)).toBe(
+      '/.well-known/oauth-protected-resource/memory-reader/v1/mcp/?v=1',
+    );
+    expect(protectedResourceMetadataUrl(`${AUDIENCE}/memory-steward/v1/mcp`)).toBe(
+      `${AUDIENCE}/.well-known/oauth-protected-resource/memory-steward/v1/mcp`,
+    );
+    expect(protectedResourceMetadataUrl(`${AUDIENCE}/memory-steward/v1/mcp?x=y`)).toBe(
+      `${AUDIENCE}/.well-known/oauth-protected-resource/memory-steward/v1/mcp?x=y`,
+    );
   });
 });

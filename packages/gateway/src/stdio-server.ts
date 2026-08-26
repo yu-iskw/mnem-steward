@@ -6,13 +6,17 @@ import {
   PROTOCOL_2025,
 } from './mcp/handle-request.js';
 import { jsonRpcError, parseJsonRpc } from './mcp/json-rpc.js';
+import { getMcpProfile } from './mcp/profiles.js';
 
+import type { McpProfile } from './mcp/profiles.js';
 import type { MemoryService, Principal } from '@mnem-steward/core';
 import type { Readable, Writable } from 'node:stream';
 
 type StdioServerOptions = {
   readonly memory: MemoryService;
   readonly principal: Principal;
+  /** Defaults to memory-steward (search + remember + profile). */
+  readonly profile?: McpProfile;
   readonly input?: Readable;
   readonly output?: Writable;
 };
@@ -24,6 +28,7 @@ type StdioServerOptions = {
 export async function runStdioServer(options: StdioServerOptions): Promise<void> {
   const input = options.input ?? process.stdin;
   const output = options.output ?? process.stdout;
+  const profile = options.profile ?? getMcpProfile('memory-steward');
   let protocolVersion = PROTOCOL_2025;
 
   const rl = createInterface({ input, crlfDelay: Infinity });
@@ -57,6 +62,7 @@ export async function runStdioServer(options: StdioServerOptions): Promise<void>
       memory: options.memory,
       principal: options.principal,
       protocolVersion,
+      profile,
     });
 
     switch (outcome.type) {

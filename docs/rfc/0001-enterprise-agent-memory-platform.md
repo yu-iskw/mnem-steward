@@ -51,7 +51,7 @@ flowchart LR
   subgraph gatewayPkg ["@mnem-steward/gateway"]
     Hono[Hono Node process]
     REST[REST /v1]
-    MCP["POST_/mcp_or_STDIO"]
+    MCP["POST /{mcpProfile}/v1/mcp_or_STDIO"]
     Comp[Composition root]
   end
   subgraph authPkg ["@mnem-steward/auth"]
@@ -342,16 +342,22 @@ Scopes (space-delimited `scope` claim):
 | `memory.profile.read` | Profile get      |
 | `memory.history.read` | Revision history |
 
-401 responses include:
+401 responses include a `WWW-Authenticate` header whose `resource_metadata` points at the **request’s** protected resource (REST root or the MCP profile path), for example:
 
 ```http
-WWW-Authenticate: Bearer realm="mnem-steward", resource_metadata="{origin}/.well-known/oauth-protected-resource"
+WWW-Authenticate: Bearer realm="mnem-steward", resource_metadata="{origin}/.well-known/oauth-protected-resource/memory-reader/v1/mcp"
 ```
 
-RFC 9728 Protected Resource Metadata:
+RFC 9728 Protected Resource Metadata (path insertion per [RFC 9728 §3.1](https://www.rfc-editor.org/rfc/rfc9728.html)):
 
-- `GET /.well-known/oauth-protected-resource` — REST resource
-- `GET /.well-known/oauth-protected-resource/mcp` — MCP resource (`/mcp`)
+- `GET /.well-known/oauth-protected-resource` — REST resource (`PUBLIC_BASE_URL`)
+- `GET /.well-known/oauth-protected-resource/memory-reader/v1/mcp` — reader MCP
+- `GET /.well-known/oauth-protected-resource/memory-steward/v1/mcp` — steward MCP
+- `GET /.well-known/oauth-protected-resource/memory-governance/v1/mcp` — governance MCP
+
+Each PRM document’s `resource` field **must** equal the corresponding resource identifier. Profile PRM `scopes_supported` is narrowed to that profile’s scopes; tokens may still carry any of the scopes above.
+
+JWT `aud` accepted by the resource server is the set `{ AUTH_AUDIENCE, …mounted profile resource URLs }` so a client that requests a token for a profile PRM `resource` still verifies. Local `POST /oauth/token` continues to mint `aud=AUTH_AUDIENCE` (also accepted). Downstream Google Memory Bank uses a separate credential (ADC / WIF), not the caller token.
 
 Local only: `GET /.well-known/oauth-authorization-server` (RFC 8414) and `POST /oauth/token` (HS256, `sub` + `iss` from local issuer, requested scopes). Production (`jwks`) does not expose those two routes.
 
@@ -359,10 +365,22 @@ Local only: `GET /.well-known/oauth-authorization-server` (RFC 8414) and `POST /
 
 Transport (dual):
 
-1. **Streamable HTTP** — **POST JSON** at `/mcp` (enterprise / remote clients; Cloud Run).
-2. **STDIO** — newline-delimited JSON-RPC on stdin/stdout via `node packages/gateway/dist/stdio-main.js` (or `pnpm --filter @mnem-steward/gateway mcp:stdio`) for individual IDE users.
+1. **Streamable HTTP** — **POST JSON** at capability-profile paths (enterprise / remote clients; Cloud Run). There is no combined `/mcp` catalog.
+2. **STDIO** — newline-delimited JSON-RPC on stdin/stdout via `node packages/gateway/dist/stdio-main.js` (or `pnpm --filter @mnem-steward/gateway mcp:stdio`) for individual IDE users (defaults to the `memory-steward` tool set).
 
-Both share the same tools, resources, and `MemoryService` composition. Do not depend on `@modelcontextprotocol/sdk`.
+| McpProfile id       | Path                        | `serverInfo.name` | Tools                                 |
+| ------------------- | --------------------------- | ----------------- | ------------------------------------- |
+| `memory-reader`     | `/memory-reader/v1/mcp`     | `mnem-reader`     | `memory_search`, `memory_profile_get` |
+| `memory-steward`    | `/memory-steward/v1/mcp`    | `mnem-steward`    | reader tools + `memory_remember`      |
+| `memory-governance` | `/memory-governance/v1/mcp` | `mnem-gov`        | `memory_forget`, `memory_history`     |
+
+Optional env `MNEM_STEWARD_MCP_PROFILES` (comma-separated ids; unset = all three) controls which HTTP paths mount. Unknown ids fail at process start.
+
+**Layers:** profile registration = capability discovery; OAuth scope = execution; MCP tool annotations = host UX hints (not authorization). A tool not registered on a profile returns JSON-RPC `-32602` even if the token has the matching scope.
+
+Every tool includes `title` and `annotations` (`readOnlyHint`, and when not read-only `destructiveHint` / `idempotentHint`, plus `openWorldHint: false` for this closed store).
+
+Both transports share `handleMcpRequest` and `MemoryService` composition. Do not depend on `@modelcontextprotocol/sdk`.
 
 **STDIO auth:** require `MNEM_ACCESS_TOKEN` (bearer JWT) verified with the same `TokenVerifier` as HTTP. Audit events must go to **stderr** (never stdout). `MEMORY_STORE=in-memory` is process-local to the STDIO subprocess; `MEMORY_STORE=google` shares the production Memory Bank with HTTP.
 
@@ -371,34 +389,34 @@ Both share the same tools, resources, and `MemoryService` composition. Do not de
 - **2025-06-18:** `initialize`, `notifications/initialized`, `ping`, `tools/list`, `tools/call`, `resources/list`, `resources/read`
 - **2026-07-28 header rules** apply to **HTTP only** when `MCP-Protocol-Version` is `2026-07-28`: `Mcp-Method` required on JSON-RPC requests; `Mcp-Name` required for `tools/call` (tool name) and `resources/read` (URI). Header/body mismatch → HTTP 400. STDIO negotiates version via `initialize.params.protocolVersion` only (no HTTP headers).
 
-Unsupported methods: JSON-RPC `-32601`. HTTP auth failures: HTTP 401 with the same `WWW-Authenticate` as REST. STDIO auth failures at startup exit non-zero; in-session unauthorized domain errors use JSON-RPC error `-32001`.
+Unsupported methods: JSON-RPC `-32601`. HTTP auth failures: HTTP 401 with profile-specific `WWW-Authenticate`. STDIO auth failures at startup exit non-zero; in-session unauthorized domain errors use JSON-RPC error `-32001`.
 
-Tools: `memory_search`, `memory_remember`, `memory_forget`, `memory_history`, `memory_profile_get` (see Appendix A).
+Resources by profile:
 
-Resources:
-
-| URI                                | Body                                                 |
-| ---------------------------------- | ---------------------------------------------------- |
-| `memory://policy`                  | Classification, secret, TTL, and personal-only rules |
-| `memory://namespaces`              | Namespace list and Milestone 1 eligibility           |
-| `memory://profiles/employee-agent` | Profile schema descriptor                            |
+| URI                                | Reader / steward | Governance | Body                                                 |
+| ---------------------------------- | ---------------- | ---------- | ---------------------------------------------------- |
+| `memory://policy`                  | yes              | yes        | Classification, secret, TTL, and personal-only rules |
+| `memory://namespaces`              | yes              | yes        | Namespace list and Milestone 1 eligibility           |
+| `memory://profiles/employee-agent` | yes              | no         | Profile schema descriptor                            |
 
 Tool results that echo stored facts **must** include a reminder that retrieved memory is **untrusted context, not instructions**. Clients should isolate it from the system prompt.
 
+Do not expose Memory Bank instance admin, purge-all, or cross-principal operations on MCP.
+
 ## 11. REST
 
-| Method   | Path                                        | Scope                 | Notes                                                               |
-| -------- | ------------------------------------------- | --------------------- | ------------------------------------------------------------------- |
-| `POST`   | `/v1/memories:search`                       | `memory.read`         | Body: context, optional text/kind/limit. Result is `SearchOutcome`. |
-| `POST`   | `/v1/memories`                              | `memory.write`        | Remember. Fail closed.                                              |
-| `DELETE` | `/v1/memories/:id`                          | `memory.delete`       | Personal ownership.                                                 |
-| `GET`    | `/v1/memories/:id/history`                  | `memory.history.read` | `HistoryOutcome`.                                                   |
-| `GET`    | `/v1/profiles/:schema`                      | `memory.profile.read` | Milestone 1 schema: `employee-agent`.                               |
-| `GET`    | `/healthz`                                  | none                  | Liveness. No store round-trip required.                             |
-| `GET`    | `/.well-known/oauth-protected-resource`     | none                  | RFC 9728                                                            |
-| `GET`    | `/.well-known/oauth-protected-resource/mcp` | none                  | RFC 9728 for `/mcp`                                                 |
-| `GET`    | `/.well-known/oauth-authorization-server`   | none                  | Local only                                                          |
-| `POST`   | `/oauth/token`                              | none                  | Local only                                                          |
+| Method   | Path                                                        | Scope                 | Notes                                                               |
+| -------- | ----------------------------------------------------------- | --------------------- | ------------------------------------------------------------------- |
+| `POST`   | `/v1/memories:search`                                       | `memory.read`         | Body: context, optional text/kind/limit. Result is `SearchOutcome`. |
+| `POST`   | `/v1/memories`                                              | `memory.write`        | Remember. Fail closed.                                              |
+| `DELETE` | `/v1/memories/:id`                                          | `memory.delete`       | Personal ownership.                                                 |
+| `GET`    | `/v1/memories/:id/history`                                  | `memory.history.read` | `HistoryOutcome`.                                                   |
+| `GET`    | `/v1/profiles/:schema`                                      | `memory.profile.read` | Milestone 1 schema: `employee-agent`.                               |
+| `GET`    | `/healthz`                                                  | none                  | Liveness. No store round-trip required.                             |
+| `GET`    | `/.well-known/oauth-protected-resource`                     | none                  | RFC 9728 REST                                                       |
+| `GET`    | `/.well-known/oauth-protected-resource/{mcpProfile}/v1/mcp` | none                  | RFC 9728 per MCP profile                                            |
+| `GET`    | `/.well-known/oauth-authorization-server`                   | none                  | Local only                                                          |
+| `POST`   | `/oauth/token`                                              | none                  | Local only                                                          |
 
 `@mnem-steward/sdk` wraps these paths with injected `fetch` and typed errors (`401`, `403`, `404`, `503` unavailable).
 
@@ -440,18 +458,18 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 
 ## 15. Threats and mitigations
 
-| Threat                                    | Mitigation                                                                       |
-| ----------------------------------------- | -------------------------------------------------------------------------------- |
-| Cross-principal recall                    | Scope map always includes `principal_id`; service denies non-personal namespaces |
-| Email-keyed identity churn / collision    | `usr_` + SHA-256(`iss` + LF + `sub`), 24 hex chars                               |
-| Secret persistence                        | Deterministic scanner; fail closed                                               |
-| Prompt injection via stored facts         | Treat retrieval as untrusted context; MCP/REST copy states this                  |
-| Empty-list masking an outage              | Fail-open reads return `unavailable`, not `ok: []`                               |
-| Token or query leakage in logs            | Metadata-only audit                                                              |
-| Confused deputy / token replay            | OAuth 2.1 RS, audience = resource identifier, JWKS in prod                       |
-| Shared-memory exfiltration this milestone | Writes/reads to shared namespaces denied                                         |
-| Vendor lock-in of protocol                | `MemoryStore` port; Google types stay in `google-memory`                         |
-| Global Memory Bank / weak CMEK            | Prefer `eu`/`us` regions; document `global` as non-compliant default             |
+| Threat                                    | Mitigation                                                                                                 |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Cross-principal recall                    | Scope map always includes `principal_id`; service denies non-personal namespaces                           |
+| Email-keyed identity churn / collision    | `usr_` + SHA-256(`iss` + LF + `sub`), 24 hex chars                                                         |
+| Secret persistence                        | Deterministic scanner; fail closed                                                                         |
+| Prompt injection via stored facts         | Treat retrieval as untrusted context; MCP/REST copy states this                                            |
+| Empty-list masking an outage              | Fail-open reads return `unavailable`, not `ok: []`                                                         |
+| Token or query leakage in logs            | Metadata-only audit                                                                                        |
+| Confused deputy / token replay            | OAuth 2.1 RS; JWT `aud` must be `AUTH_AUDIENCE` (REST) or a mounted MCP profile resource URL; JWKS in prod |
+| Shared-memory exfiltration this milestone | Writes/reads to shared namespaces denied                                                                   |
+| Vendor lock-in of protocol                | `MemoryStore` port; Google types stay in `google-memory`                                                   |
+| Global Memory Bank / weak CMEK            | Prefer `eu`/`us` regions; document `global` as non-compliant default                                       |
 
 ## 16. Closed questions vs remaining open questions
 
@@ -461,7 +479,7 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 2. Five packages listed in §5; delete `packages/common`; root name `mnem-steward`; no `apps/*`
 3. Personal default; shared types exist; shared I/O denied until promotion
 4. OAuth 2.1 RS; `AUTH_MODE=local|jwks`; scopes in §9; principal from `iss`+`sub`
-5. MCP dual transport: POST `/mcp` (Streamable HTTP) and STDIO NDJSON; 2025-06-18 methods + HTTP-only 2026-07-28 headers; no MCP SDK; tools/resources in §10
+5. MCP dual transport: profile POSTs (`/memory-reader|memory-steward|memory-governance/v1/mcp`) and STDIO NDJSON; 2025-06-18 methods + HTTP-only 2026-07-28 headers; no MCP SDK; tools/resources in §10; no combined `/mcp`
 6. REST surface in §11
 7. Domain namespaces, kinds, classification, fail-closed secrets/prohibited, server-side `toMemoryBankScope`
 8. Fail-open reads / fail-closed writes; metadata-only audit
@@ -496,7 +514,7 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 4. Shared namespace and `current_project` writes/reads denied
 5. Secret-like payload and `prohibited-for-memory` writes denied
 6. Forced store failure on search returns structured `unavailable` (not empty ok)
-7. MCP `tools/list` includes the five tools; `resources/read` serves the three URIs; 2026-07-28 HTTP requests without `Mcp-Method` fail 400; STDIO `initialize` → `tools/list` → `tools/call` works with `MNEM_ACCESS_TOKEN`
+7. Each mounted MCP profile `tools/list` exposes only that profile’s tools with annotations; `resources/read` serves the profile’s URIs; 2026-07-28 HTTP requests without `Mcp-Method` fail 400; a tool not on the profile returns JSON-RPC `-32602`; STDIO `initialize` → `tools/list` → `tools/call` works with `MNEM_ACCESS_TOKEN` (steward tool set by default)
 8. Retrieved memory responses include the untrusted-context notice
 9. Google adapter live tests skip without env; with env they hit v1beta1 and do not use `vi.mock`
 10. Coverage meets 80% lines/functions/statements and 70% branches; Dockerfile present; Terraform skeleton present
@@ -504,30 +522,31 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 
 ## Appendix A — MCP tool surface
 
-| Tool                 | Scope                 | Arguments                                                   | Result                             |
-| -------------------- | --------------------- | ----------------------------------------------------------- | ---------------------------------- |
-| `memory_search`      | `memory.read`         | `context`, optional `text`, `kind`, `limit`                 | `SearchOutcome` + untrusted notice |
-| `memory_remember`    | `memory.write`        | `context`, `kind`, `classification`, `fact`, optional `ttl` | `MemoryRecord`                     |
-| `memory_forget`      | `memory.delete`       | `id`                                                        | `{ "deleted": true }`              |
-| `memory_history`     | `memory.history.read` | `id`                                                        | `HistoryOutcome`                   |
-| `memory_profile_get` | `memory.profile.read` | `schema` (default `employee-agent`)                         | `ProfileOutcome`                   |
+| Tool                 | Scopes                | Profiles        | Annotations (summary)                                                                     | Arguments                                                   | Result                             |
+| -------------------- | --------------------- | --------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------- |
+| `memory_search`      | `memory.read`         | reader, steward | `readOnlyHint: true`, `openWorldHint: false`                                              | `context`, optional `text`, `kind`, `limit`                 | `SearchOutcome` + untrusted notice |
+| `memory_remember`    | `memory.write`        | steward         | `destructiveHint: true` (may create/update/delete consolidations), `openWorldHint: false` | `context`, `kind`, `classification`, `fact`, optional `ttl` | `MemoryRecord`                     |
+| `memory_forget`      | `memory.delete`       | governance      | `destructiveHint: true`, `openWorldHint: false`                                           | `id`                                                        | `{ "deleted": true }`              |
+| `memory_history`     | `memory.history.read` | governance      | `readOnlyHint: true`, `openWorldHint: false`                                              | `id`                                                        | `HistoryOutcome`                   |
+| `memory_profile_get` | `memory.profile.read` | reader, steward | `readOnlyHint: true`, `openWorldHint: false`                                              | `schema` (default `employee-agent`)                         | `ProfileOutcome`                   |
 
 ## Appendix B — Environment variables
 
-| Variable                     | Required                  | Purpose                                     |
-| ---------------------------- | ------------------------- | ------------------------------------------- |
-| `PORT`                       | Cloud Run                 | Listen port                                 |
-| `AUTH_MODE`                  | yes                       | `local` or `jwks`                           |
-| `PUBLIC_BASE_URL`            | yes                       | Resource identifier / PRM URLs              |
-| `AUTH_ISSUER`                | `jwks`                    | Expected `iss`                              |
-| `AUTH_AUDIENCE`              | `jwks`                    | Expected `aud` (resource id)                |
-| `AUTH_JWKS_URL`              | `jwks`                    | JWKS endpoint                               |
-| `LOCAL_JWT_SECRET`           | `local`                   | HS256 key                                   |
-| `MEMORY_STORE`               | yes                       | `in-memory` or `google`                     |
-| `GOOGLE_CLOUD_PROJECT`       | Google store / live tests | GCP project                                 |
-| `GOOGLE_CLOUD_LOCATION`      | Google store / live tests | Regional location (not `global` in prod)    |
-| `GOOGLE_REASONING_ENGINE_ID` | Google store / live tests | Standalone Memory Bank engine id            |
-| `MNEM_ACCESS_TOKEN`          | STDIO MCP                 | Bearer JWT verified like HTTP Authorization |
+| Variable                     | Required                  | Purpose                                                             |
+| ---------------------------- | ------------------------- | ------------------------------------------------------------------- |
+| `PORT`                       | Cloud Run                 | Listen port                                                         |
+| `AUTH_MODE`                  | yes                       | `local` or `jwks`                                                   |
+| `PUBLIC_BASE_URL`            | yes                       | Resource identifier / PRM URLs                                      |
+| `AUTH_ISSUER`                | `jwks`                    | Expected `iss`                                                      |
+| `AUTH_AUDIENCE`              | `jwks`                    | Expected REST `aud`; MCP also accepts mounted profile resource URLs |
+| `AUTH_JWKS_URL`              | `jwks`                    | JWKS endpoint                                                       |
+| `LOCAL_JWT_SECRET`           | `local`                   | HS256 key                                                           |
+| `MEMORY_STORE`               | yes                       | `in-memory` or `google`                                             |
+| `MNEM_STEWARD_MCP_PROFILES`  | no                        | Comma-separated MCP profile ids to mount (default: all three)       |
+| `GOOGLE_CLOUD_PROJECT`       | Google store / live tests | GCP project                                                         |
+| `GOOGLE_CLOUD_LOCATION`      | Google store / live tests | Regional location (not `global` in prod)                            |
+| `GOOGLE_REASONING_ENGINE_ID` | Google store / live tests | Standalone Memory Bank engine id                                    |
+| `MNEM_ACCESS_TOKEN`          | STDIO MCP                 | Bearer JWT verified like HTTP Authorization                         |
 
 ## Appendix C — Decision log
 
@@ -546,6 +565,7 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 | Scanner           | Deterministic                  | Fail closed without model nondeterminism             |
 | Packages          | Five, no `apps/*`, no `common` | One composition root: gateway                        |
 | Reads vs writes   | Fail-open / fail-closed        | Safety of recall vs safety of persistence            |
+| MCP catalogs      | Three capability profiles      | Discovery boundary separate from OAuth scopes        |
 
 ## Appendix D — Implementation notes for agents
 
