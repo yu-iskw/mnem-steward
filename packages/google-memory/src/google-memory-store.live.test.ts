@@ -1,7 +1,7 @@
 import { createFixedClock, createMemoryService, principalIdFromOidc } from '@mnem-steward/core';
 import { describe, expect, it } from 'vitest';
 
-import { createAccessTokenProvider } from './access-token.js';
+import { createGoogleAccessTokenProvider } from './access-token.js';
 import { googleMemoryConfigFromEnv, isGoogleMemoryConfigured } from './config.js';
 import { createGoogleMemoryStore } from './google-memory-store.js';
 
@@ -18,11 +18,13 @@ describe('live Google Memory Bank', () => {
     'remembers a preference via DirectMemory generate and applies expireTime when PATCH works',
     async () => {
       const config = googleMemoryConfigFromEnv(process.env);
+      const envToken = process.env['GOOGLE_ACCESS_TOKEN']?.trim();
       const store = createGoogleMemoryStore({
         config,
         http: { fetch },
-        tokens: createAccessTokenProvider({
-          envToken: process.env['GOOGLE_ACCESS_TOKEN'],
+        tokens: createGoogleAccessTokenProvider({
+          mode: envToken !== undefined && envToken !== '' ? 'env' : 'adc',
+          envToken,
         }),
       });
       const principal: Principal = {

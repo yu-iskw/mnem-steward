@@ -1,62 +1,199 @@
+import { GoogleAuth, Impersonated } from 'google-auth-library';
+
 import type { AccessTokenProvider } from './config.js';
+import type { AuthClient } from 'google-auth-library';
 
-const METADATA_TOKEN_URL =
-  'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token';
-const REFRESH_SKEW_MS = 60_000;
-const METADATA_TIMEOUT_MS = 5_000;
+const CLOUD_PLATFORM_SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
 
-export function createAccessTokenProvider(input: {
+export type GoogleCredentialMode = 'env' | 'adc' | 'impersonate';
+
+export type GoogleCredentialDescription = {
+  readonly mode: GoogleCredentialMode;
+  readonly targetPrincipal?: string;
+};
+
+export function formatGoogleCredentialDescription(
+  description: GoogleCredentialDescription | undefined,
+): string | undefined {
+  if (description === undefined) {
+    return undefined;
+  }
+  if (description.targetPrincipal === undefined) {
+    return `google_credentials mode=${description.mode}`;
+  }
+  return `google_credentials mode=${description.mode} target=${description.targetPrincipal}`;
+}
+
+export type DescribedAccessTokenProvider = AccessTokenProvider & {
+  describeCredentials(): GoogleCredentialDescription;
+};
+
+export type GoogleAccessTokenProviderConfig = {
+  readonly mode: GoogleCredentialMode;
+  readonly envToken?: string;
+  readonly impersonateServiceAccount?: string;
+  /** Test seam: supply the ADC/source AuthClient. */
+  readonly getSourceClient?: () => Promise<AuthClient>;
+  /** Test seam: build an Impersonated (or stub) client. */
+  readonly createImpersonatedClient?: (input: {
+    sourceClient: AuthClient;
+    targetPrincipal: string;
+    targetScopes: string[];
+  }) => AuthClient;
+};
+
+/**
+ * Resolve credential mode from env.
+ * Unset mode: `env` when GOOGLE_ACCESS_TOKEN is set, otherwise `adc`.
+ */
+export function assertGoogleCredentialConfig(
+  mode: GoogleCredentialMode,
+  config: Pick<GoogleAccessTokenProviderConfig, 'envToken' | 'impersonateServiceAccount'>,
+): void {
+  switch (mode) {
+    case 'env':
+      if (config.envToken?.trim() === undefined || config.envToken.trim() === '') {
+        throw new Error('GOOGLE_CREDENTIAL_MODE=env requires GOOGLE_ACCESS_TOKEN');
+      }
+      return;
+    case 'adc':
+      return;
+    case 'impersonate':
+      if (
+        config.impersonateServiceAccount?.trim() === undefined ||
+        config.impersonateServiceAccount.trim() === ''
+      ) {
+        throw new Error(
+          'GOOGLE_CREDENTIAL_MODE=impersonate requires GOOGLE_IMPERSONATE_SERVICE_ACCOUNT',
+        );
+      }
+      return;
+    default: {
+      const exhaustive: never = mode;
+      return exhaustive;
+    }
+  }
+}
+
+export function resolveGoogleCredentialMode(env: {
+  mode?: string;
   envToken?: string;
-  fetch?: typeof fetch;
-  now?: () => number;
-}): AccessTokenProvider {
-  let cached: { token: string; expiresAtMs: number } | undefined;
-  const fetchImpl = input.fetch ?? fetch;
-  const now = input.now ?? Date.now;
+}): GoogleCredentialMode {
+  const explicit = env.mode?.trim();
+  if (explicit !== undefined && explicit !== '') {
+    switch (explicit) {
+      case 'env':
+      case 'adc':
+      case 'impersonate':
+        return explicit;
+      default:
+        throw new Error(`Unsupported GOOGLE_CREDENTIAL_MODE: ${explicit}`);
+    }
+  }
+  const token = env.envToken?.trim();
+  if (token !== undefined && token !== '') {
+    return 'env';
+  }
+  return 'adc';
+}
 
+/**
+ * Downstream Google credential broker (MCP JWT is never used here).
+ * Modes: env token, Application Default Credentials, or SA impersonation.
+ */
+export function createGoogleAccessTokenProvider(
+  config: GoogleAccessTokenProviderConfig,
+): DescribedAccessTokenProvider {
+  assertGoogleCredentialConfig(config.mode, config);
+  switch (config.mode) {
+    case 'env':
+      return envProvider(config.envToken);
+    case 'adc':
+      return authClientProvider('adc', undefined, () => resolveSourceClient(config));
+    case 'impersonate':
+      return impersonateProvider(config);
+    default: {
+      const exhaustive: never = config.mode;
+      return exhaustive;
+    }
+  }
+}
+
+/**
+ * @deprecated Prefer {@link createGoogleAccessTokenProvider}. Kept for live tests
+ * that pass a static env token (equivalent to mode `env`) or ADC when omitted.
+ */
+export function createAccessTokenProvider(input: { envToken?: string }): AccessTokenProvider {
+  const fromEnv = input.envToken?.trim();
+  if (fromEnv !== undefined && fromEnv !== '') {
+    return createGoogleAccessTokenProvider({ mode: 'env', envToken: fromEnv });
+  }
+  return createGoogleAccessTokenProvider({ mode: 'adc' });
+}
+
+function envProvider(envToken: string | undefined): DescribedAccessTokenProvider {
+  const token = envToken?.trim() ?? '';
   return {
+    describeCredentials: () => ({ mode: 'env' }),
+    getAccessToken(): Promise<string> {
+      return Promise.resolve(token);
+    },
+  };
+}
+
+function authClientProvider(
+  mode: GoogleCredentialMode,
+  targetPrincipal: string | undefined,
+  getClient: () => Promise<AuthClient>,
+): DescribedAccessTokenProvider {
+  let clientPromise: Promise<AuthClient> | undefined;
+  return {
+    describeCredentials: () =>
+      targetPrincipal === undefined ? { mode } : { mode, targetPrincipal },
     async getAccessToken(): Promise<string> {
-      const fromEnv = input.envToken?.trim();
-      if (fromEnv !== undefined && fromEnv !== '') {
-        return fromEnv;
+      clientPromise ??= getClient();
+      const client = await clientPromise;
+      const result = await client.getAccessToken();
+      const token = typeof result === 'string' ? result : result.token;
+      if (token === null || token === undefined || token.trim() === '') {
+        throw new Error('Google Auth client returned an empty access token');
       }
-      const at = now();
-      if (cached !== undefined && cached.expiresAtMs > at + REFRESH_SKEW_MS) {
-        return cached.token;
-      }
-      const metadata = await fetchImpl(METADATA_TOKEN_URL, {
-        headers: { 'Metadata-Flavor': 'Google' },
-        signal: AbortSignal.timeout(METADATA_TIMEOUT_MS),
-      });
-      if (!metadata.ok) {
-        throw new Error(`Metadata token server returned ${String(metadata.status)}`);
-      }
-      const body: unknown = await metadata.json();
-      const token = accessTokenFrom(body);
-      const expiresIn = expiresInFrom(body);
-      cached = { token, expiresAtMs: at + expiresIn * 1000 };
       return token;
     },
   };
 }
 
-function accessTokenFrom(body: unknown): string {
-  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
-    throw new Error('Metadata token server omitted access_token');
-  }
-  const token = (body as { access_token?: unknown }).access_token;
-  if (typeof token !== 'string' || token.trim() === '') {
-    throw new Error('Metadata token server omitted access_token');
-  }
-  return token;
+function impersonateProvider(
+  config: GoogleAccessTokenProviderConfig,
+): DescribedAccessTokenProvider {
+  const target = config.impersonateServiceAccount?.trim() ?? '';
+  const createImpersonated =
+    config.createImpersonatedClient ??
+    ((input: {
+      sourceClient: AuthClient;
+      targetPrincipal: string;
+      targetScopes: string[];
+    }): AuthClient =>
+      new Impersonated({
+        sourceClient: input.sourceClient,
+        targetPrincipal: input.targetPrincipal,
+        targetScopes: input.targetScopes,
+      }));
+
+  return authClientProvider('impersonate', target, async () => {
+    const sourceClient = await resolveSourceClient(config);
+    return createImpersonated({
+      sourceClient,
+      targetPrincipal: target,
+      targetScopes: [CLOUD_PLATFORM_SCOPE],
+    });
+  });
 }
 
-function expiresInFrom(body: unknown): number {
-  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
-    return 3600;
+async function resolveSourceClient(config: GoogleAccessTokenProviderConfig): Promise<AuthClient> {
+  if (config.getSourceClient !== undefined) {
+    return config.getSourceClient();
   }
-  const expiresIn = (body as { expires_in?: unknown }).expires_in;
-  return typeof expiresIn === 'number' && Number.isFinite(expiresIn) && expiresIn > 0
-    ? expiresIn
-    : 3600;
+  const auth = new GoogleAuth({ scopes: [CLOUD_PLATFORM_SCOPE] });
+  return auth.getClient();
 }

@@ -81,7 +81,7 @@ Cursor `mcp.json` example (paths relative to your checkout):
 }
 ```
 
-Build the gateway first (`pnpm --filter @mnem-steward/gateway build`). `MEMORY_STORE=in-memory` is process-local; `google` shares the production Memory Bank with the HTTP gateway. Audit lines go to stderr so they do not corrupt the STDIO wire.
+Build the gateway first (`pnpm --filter @mnem-steward/gateway build`). `MEMORY_STORE=in-memory` is process-local; `google` shares the production Memory Bank with the HTTP gateway and needs a separate Google credential (`GOOGLE_CREDENTIAL_MODE=adc` recommended, or `env` / `impersonate` — never reuse `MNEM_ACCESS_TOKEN` as a Google token). Audit lines go to stderr so they do not corrupt the STDIO wire.
 
 ### Build
 

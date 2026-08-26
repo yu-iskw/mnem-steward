@@ -64,4 +64,79 @@ describe('parseEnv', () => {
       }),
     ).toThrow(/AUTH_JWKS_URL/);
   });
+
+  it('defaults google credentials to env when GOOGLE_ACCESS_TOKEN is set', () => {
+    const env = parseEnv({
+      PUBLIC_BASE_URL: 'https://memory.company.example',
+      AUTH_MODE: 'jwks',
+      AUTH_JWKS_URL: 'https://issuer.example/jwks',
+      MEMORY_STORE: 'google',
+      GOOGLE_CLOUD_PROJECT: 'p',
+      GOOGLE_CLOUD_LOCATION: 'eu',
+      GOOGLE_REASONING_ENGINE_ID: 'eng',
+      GOOGLE_ACCESS_TOKEN: 'ya29.test',
+    });
+    expect(env.googleCredentialMode).toBe('env');
+    expect(env.googleAccessToken).toBe('ya29.test');
+  });
+
+  it('defaults google credentials to adc without an env token', () => {
+    const env = parseEnv({
+      PUBLIC_BASE_URL: 'https://memory.company.example',
+      AUTH_MODE: 'jwks',
+      AUTH_JWKS_URL: 'https://issuer.example/jwks',
+      MEMORY_STORE: 'google',
+      GOOGLE_CLOUD_PROJECT: 'p',
+      GOOGLE_CLOUD_LOCATION: 'eu',
+      GOOGLE_REASONING_ENGINE_ID: 'eng',
+    });
+    expect(env.googleCredentialMode).toBe('adc');
+  });
+
+  it('requires impersonation target when mode is impersonate', () => {
+    expect(() =>
+      parseEnv({
+        PUBLIC_BASE_URL: 'https://memory.company.example',
+        AUTH_MODE: 'jwks',
+        AUTH_JWKS_URL: 'https://issuer.example/jwks',
+        MEMORY_STORE: 'google',
+        GOOGLE_CLOUD_PROJECT: 'p',
+        GOOGLE_CLOUD_LOCATION: 'eu',
+        GOOGLE_REASONING_ENGINE_ID: 'eng',
+        GOOGLE_CREDENTIAL_MODE: 'impersonate',
+      }),
+    ).toThrow(/GOOGLE_IMPERSONATE_SERVICE_ACCOUNT/);
+  });
+
+  it('honors explicit adc when GOOGLE_ACCESS_TOKEN is set', () => {
+    const env = parseEnv({
+      PUBLIC_BASE_URL: 'https://memory.company.example',
+      AUTH_MODE: 'jwks',
+      AUTH_JWKS_URL: 'https://issuer.example/jwks',
+      MEMORY_STORE: 'google',
+      GOOGLE_CLOUD_PROJECT: 'p',
+      GOOGLE_CLOUD_LOCATION: 'eu',
+      GOOGLE_REASONING_ENGINE_ID: 'eng',
+      GOOGLE_CREDENTIAL_MODE: 'adc',
+      GOOGLE_ACCESS_TOKEN: 'ya29.test',
+    });
+    expect(env.googleCredentialMode).toBe('adc');
+    expect(env.googleAccessToken).toBe('ya29.test');
+  });
+
+  it('parses impersonate mode with a target SA', () => {
+    const env = parseEnv({
+      PUBLIC_BASE_URL: 'https://memory.company.example',
+      AUTH_MODE: 'jwks',
+      AUTH_JWKS_URL: 'https://issuer.example/jwks',
+      MEMORY_STORE: 'google',
+      GOOGLE_CLOUD_PROJECT: 'p',
+      GOOGLE_CLOUD_LOCATION: 'eu',
+      GOOGLE_REASONING_ENGINE_ID: 'eng',
+      GOOGLE_CREDENTIAL_MODE: 'impersonate',
+      GOOGLE_IMPERSONATE_SERVICE_ACCOUNT: 'memory@p.iam.gserviceaccount.com',
+    });
+    expect(env.googleCredentialMode).toBe('impersonate');
+    expect(env.googleImpersonateServiceAccount).toBe('memory@p.iam.gserviceaccount.com');
+  });
 });

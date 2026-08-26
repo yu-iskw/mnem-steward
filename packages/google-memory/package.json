@@ -22,6 +22,7 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@mnem-steward/core": "workspace:*"
+    "@mnem-steward/core": "workspace:*",
+    "google-auth-library": "^11.0.2"
   }
 }

@@ -6,7 +6,11 @@ import {
   createStdoutAuditSink,
   systemClock,
 } from '@mnem-steward/core';
-import { createAccessTokenProvider, createGoogleMemoryStore } from '@mnem-steward/google-memory';
+import {
+  createGoogleAccessTokenProvider,
+  createGoogleMemoryStore,
+  formatGoogleCredentialDescription,
+} from '@mnem-steward/google-memory';
 
 import { mcpProfileMount } from './mcp/profiles.js';
 
@@ -14,6 +18,7 @@ import type { GatewayEnv } from './env.js';
 import type { McpProfileMount } from './mcp/profiles.js';
 import type { TokenVerifier } from '@mnem-steward/auth';
 import type { AuditSink, MemoryService } from '@mnem-steward/core';
+import type { DescribedAccessTokenProvider } from '@mnem-steward/google-memory';
 
 export type GatewayDeps = {
   readonly env: GatewayEnv;
@@ -24,6 +29,7 @@ export type GatewayDeps = {
 
 type CreateGatewayDepsOptions = {
   readonly audit?: AuditSink;
+  readonly logGoogleCredentials?: (line: string) => void;
 };
 
 export function createGatewayDeps(
@@ -31,7 +37,8 @@ export function createGatewayDeps(
   options: CreateGatewayDepsOptions = {},
 ): GatewayDeps {
   const clock = systemClock;
-  const store = createStore(env);
+  const googleCredentials = createGoogleCredentials(env, options.logGoogleCredentials);
+  const store = createStore(env, googleCredentials);
   const memory = createMemoryService({
     store,
     audit: options.audit ?? createStdoutAuditSink(),
@@ -47,18 +54,44 @@ export function createGatewayDeps(
   };
 }
 
-function createStore(env: GatewayEnv) {
+function createGoogleCredentials(
+  env: GatewayEnv,
+  logGoogleCredentials: ((line: string) => void) | undefined,
+): DescribedAccessTokenProvider | undefined {
+  if (env.memoryStore !== 'google' || env.googleCredentialMode === undefined) {
+    return undefined;
+  }
+  if (
+    env.googleAccessToken !== undefined &&
+    env.googleCredentialMode === 'adc' &&
+    logGoogleCredentials !== undefined
+  ) {
+    logGoogleCredentials('google_credentials note=GOOGLE_ACCESS_TOKEN is ignored in adc mode');
+  }
+  const provider = createGoogleAccessTokenProvider({
+    mode: env.googleCredentialMode,
+    envToken: env.googleAccessToken,
+    impersonateServiceAccount: env.googleImpersonateServiceAccount,
+  });
+  const credentialLog = formatGoogleCredentialDescription(provider.describeCredentials());
+  if (credentialLog !== undefined) {
+    logGoogleCredentials?.(credentialLog);
+  }
+  return provider;
+}
+
+function createStore(env: GatewayEnv, googleCredentials: DescribedAccessTokenProvider | undefined) {
   switch (env.memoryStore) {
     case 'in-memory':
       return createInMemoryMemoryStore({ clock: systemClock, ids: createRandomIdGenerator() });
     case 'google':
-      if (env.google === undefined) {
+      if (env.google === undefined || googleCredentials === undefined) {
         throw new Error('Google Memory Bank config missing');
       }
       return createGoogleMemoryStore({
         config: env.google,
         http: { fetch },
-        tokens: createAccessTokenProvider({ envToken: process.env['GOOGLE_ACCESS_TOKEN'] }),
+        tokens: googleCredentials,
       });
     default: {
       const exhaustive: never = env.memoryStore;

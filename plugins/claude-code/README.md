@@ -15,7 +15,9 @@ To persist facts, use `/memory-steward/v1/mcp`. To forget or inspect history, us
 
 ## Local STDIO MCP (individual users)
 
-Same tools as HTTP. Launch the gateway STDIO entrypoint with a bearer JWT:
+Same tools as HTTP. Launch the gateway STDIO entrypoint with a **MCP** bearer JWT
+(`MNEM_ACCESS_TOKEN`). If using `MEMORY_STORE=google`, configure Google credentials
+separately (`GOOGLE_CREDENTIAL_MODE=adc|env|impersonate`) — do not reuse the MCP JWT.
 
 ```bash
 export PUBLIC_BASE_URL=http://127.0.0.1:8080

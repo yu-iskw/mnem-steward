@@ -1,9 +1,14 @@
-import { googleMemoryConfigFromEnv, isGoogleMemoryConfigured } from '@mnem-steward/google-memory';
+import {
+  assertGoogleCredentialConfig,
+  googleMemoryConfigFromEnv,
+  isGoogleMemoryConfigured,
+  resolveGoogleCredentialMode,
+} from '@mnem-steward/google-memory';
 
 import { parseMcpProfiles } from './mcp/profiles.js';
 
 import type { McpProfileId } from './mcp/profiles.js';
-import type { GoogleMemoryConfig } from '@mnem-steward/google-memory';
+import type { GoogleCredentialMode, GoogleMemoryConfig } from '@mnem-steward/google-memory';
 
 export type AuthMode = 'local' | 'jwks';
 export type MemoryStoreMode = 'in-memory' | 'google';
@@ -18,6 +23,9 @@ export type GatewayEnv = {
   readonly localJwtSecret: Uint8Array | undefined;
   readonly jwksUrl: string | undefined;
   readonly google: GoogleMemoryConfig | undefined;
+  readonly googleCredentialMode: GoogleCredentialMode | undefined;
+  readonly googleAccessToken: string | undefined;
+  readonly googleImpersonateServiceAccount: string | undefined;
   readonly mcpProfiles: readonly McpProfileId[];
 };
 
@@ -31,6 +39,23 @@ export function parseEnv(env: Record<string, string | undefined>): GatewayEnv {
   if (authMode === 'local') {
     assertLocalAuthAllowed(publicBaseUrl, env['ALLOW_LOCAL_AUTH']);
   }
+
+  const googleAccessToken = optionalTrim(env['GOOGLE_ACCESS_TOKEN']);
+  const googleImpersonateServiceAccount = optionalTrim(env['GOOGLE_IMPERSONATE_SERVICE_ACCOUNT']);
+  let googleCredentialMode: GoogleCredentialMode | undefined;
+  let google: GoogleMemoryConfig | undefined;
+  if (memoryStore === 'google') {
+    google = googleConfig(env);
+    googleCredentialMode = resolveGoogleCredentialMode({
+      mode: env['GOOGLE_CREDENTIAL_MODE'],
+      envToken: googleAccessToken,
+    });
+    assertGoogleCredentialConfig(googleCredentialMode, {
+      envToken: googleAccessToken,
+      impersonateServiceAccount: googleImpersonateServiceAccount,
+    });
+  }
+
   return {
     port: Number.isFinite(port) ? port : 8080,
     publicBaseUrl,
@@ -43,7 +68,10 @@ export function parseEnv(env: Record<string, string | undefined>): GatewayEnv {
         ? encodeSecret(required(env['LOCAL_JWT_SECRET'], 'LOCAL_JWT_SECRET'))
         : undefined,
     jwksUrl: authMode === 'jwks' ? required(env['AUTH_JWKS_URL'], 'AUTH_JWKS_URL') : undefined,
-    google: memoryStore === 'google' ? googleConfig(env) : undefined,
+    google,
+    googleCredentialMode,
+    googleAccessToken,
+    googleImpersonateServiceAccount,
     mcpProfiles: parseMcpProfiles(env['MNEM_STEWARD_MCP_PROFILES']),
   };
 }
@@ -82,6 +110,11 @@ function required(value: string | undefined, key: string): string {
     throw new Error(`Missing required env ${key}`);
   }
   return value;
+}
+
+function optionalTrim(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed === undefined || trimmed === '' ? undefined : trimmed;
 }
 
 function encodeSecret(secret: string): Uint8Array {
