@@ -1,6 +1,8 @@
-# {PROJECT_NAME}
+# Mnem Steward
 
-{PROJECT_DESCRIPTION}
+Company-owned control plane for personal agent memory. Clients talk MCP and REST to this gateway; Google Memory Bank is a pluggable backend, not the public API.
+
+See [RFC 0001](docs/rfc/0001-enterprise-agent-memory-platform.md) for the implementation contract.
 
 ## Getting Started
 
@@ -9,7 +11,7 @@
 - [pnpm](https://pnpm.io/) **11.x** (see `packageManager` in `package.json`; use [Corepack](https://nodejs.org/api/corepack.html): `corepack enable`)
 - Node.js **22+** (see `engines` in `package.json`; `.node-version` pins the version used for local dev and CI)
 
-Dependency installs follow pnpm 11 supply-chain settings in [`pnpm-workspace.yaml`](pnpm-workspace.yaml): **minimum release age** (this template uses a **7-day** quarantine, stricter than pnpm’s built-in 24-hour default), **blocking exotic transitive dependencies**, and an **`allowBuilds`** allowlist for packages that run install scripts. See [pnpm 11 release notes](https://pnpm.io/blog/releases/11.0) and [Supply-chain defaults (Socket)](https://socket.dev/blog/pnpm-11-adds-new-supply-chain-protection-defaults).
+Dependency installs follow pnpm 11 supply-chain settings in [`pnpm-workspace.yaml`](pnpm-workspace.yaml): **minimum release age** (this repository uses a **7-day** quarantine, stricter than pnpm’s built-in 24-hour default), **blocking exotic transitive dependencies**, and an **`allowBuilds`** allowlist for packages that run install scripts.
 
 Linting and formatting use [Trunk](https://trunk.io/) (ESLint, Prettier, and more). The Trunk **launcher** is installed with project dependencies—you do not need a separate Trunk install for the default workflow.
 
@@ -25,13 +27,24 @@ Optional: prefetch Trunk’s hermetic tools (helpful for offline work or CI imag
 pnpm exec trunk install
 ```
 
-If you prefer a global `trunk` on your PATH, see the [Trunk installation guide](https://docs.trunk.io/references/cli/getting-started/install) (e.g. `brew install trunk-io` on macOS).
+### Local gateway
 
-### Supply-chain protections
+```bash
+cp .env.example .env
+pnpm build
+set -a && source .env && set +a
+pnpm start
+```
 
-The template uses **pnpm 11** with settings in [`pnpm-workspace.yaml`](pnpm-workspace.yaml): a **7-day** [`minimumReleaseAge`](https://pnpm.io/settings#minimumreleaseage) (10080 minutes, stricter than pnpm’s default 1 day), [`blockExoticSubdeps`](https://pnpm.io/settings#blockexoticsubdeps) enabled, and an [`allowBuilds`](https://pnpm.io/settings#allowbuilds) map for dependencies that must run install scripts (pnpm 11 requires this for native toolchain packages such as esbuild). See the [pnpm 11 release notes](https://pnpm.io/blog/releases/11.0).
+Issue a local access token:
 
-CI: pull requests and `main` run `pnpm lint:security` then generate/scan an SPDX SBOM (`.github/workflows/sbom.yml`). Publish re-checks `pnpm lint:security` before npm publish.
+```bash
+curl -s http://127.0.0.1:8080/oauth/token \
+  -H 'content-type: application/json' \
+  -d '{"grant_type":"client_credentials","sub":"dev","scope":"memory.read memory.write memory.delete memory.profile.read memory.history.read"}'
+```
+
+MCP endpoint: `POST /mcp`. REST search: `POST /v1/memories:search`.
 
 ### Build
 
@@ -54,9 +67,15 @@ pnpm format
 
 ## Project Structure
 
-- `packages/`: Monorepo packages
-  - `common/`: Shared utilities and types
+- `packages/core`: Domain model, policy, secret scanning, in-memory store, `MemoryService`
+- `packages/auth`: OAuth 2.1 resource-server JWT helpers and RFC 9728 metadata
+- `packages/google-memory`: Google Memory Bank v1beta1 adapter
+- `packages/gateway`: Cloud Run Hono process (REST + MCP)
+- `packages/sdk`: TypeScript REST client
+- `docs/rfc`: Accepted RFC
+- `infra/terraform`: Cloud Run skeleton
+- `plugins`: Claude Code and Cursor integration notes
 
 ## License
 
-{LICENSE}
+Apache-2.0

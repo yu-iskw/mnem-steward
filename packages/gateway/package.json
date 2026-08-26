@@ -1,0 +1,32 @@
+{
+  "name": "@mnem-steward/gateway",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloud Run MCP/REST gateway for Mnem Steward.",
+  "keywords": [
+    "mcp",
+    "cloud-run"
+  ],
+  "license": "Apache-2.0",
+  "author": "",
+  "type": "module",
+  "main": "dist/main.js",
+  "types": "src/create-app.ts",
+  "exports": {
+    ".": {
+      "types": "./src/create-app.ts",
+      "import": "./dist/create-app.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@mnem-steward/auth": "workspace:*",
+    "@mnem-steward/core": "workspace:*",
+    "@mnem-steward/google-memory": "workspace:*",
+    "@hono/node-server": "^1.19.9",
+    "hono": "^4.11.3"
+  }
+}
