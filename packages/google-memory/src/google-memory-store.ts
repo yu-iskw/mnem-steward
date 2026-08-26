@@ -157,8 +157,8 @@ function memoryResourceUrl(base: string, parent: string, id: MemoryId): string {
   return `${base}/v1beta1/${parent}/memories/${encodeURIComponent(assertMemoryId(id))}`;
 }
 
-const OPERATION_POLL_ATTEMPTS = 8;
-const OPERATION_POLL_DELAY_MS = 50;
+const OPERATION_POLL_ATTEMPTS = 40;
+const OPERATION_POLL_DELAY_MS = 250;
 
 async function awaitOperation(
   input: {

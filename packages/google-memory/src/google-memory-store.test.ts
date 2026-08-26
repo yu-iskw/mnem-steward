@@ -44,9 +44,9 @@ describe('google memory mapping', () => {
     });
     expect(body['scope']).toEqual({ namespace: 'personal', principal_id: actor.id });
     const source = body['directMemoriesSource'] as {
-      directMemories: { expireTime: string; fact: string }[];
+      directMemories: { expireTime?: string; fact: string }[];
     };
-    expect(source.directMemories[0]?.expireTime).toBe('2026-08-26T12:00:00.000Z');
+    expect(source.directMemories[0]?.expireTime).toBeUndefined();
     expect(source.directMemories[0]?.fact).toBe(
       'preference|internal: preferred_package_manager: pnpm',
     );

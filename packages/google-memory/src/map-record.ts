@@ -20,15 +20,14 @@ type JsonObject = { readonly [key: string]: unknown };
 
 export function generateMemoriesBody(input: RememberInput): JsonObject {
   const scope = toMemoryBankScope(input.context, input.principal);
-  const expireTime =
-    input.ttl !== undefined && 'expireAt' in input.ttl ? input.ttl.expireAt : undefined;
+  // Memory Bank GenerateMemories DirectMemory does not accept expireTime; TTL is applied
+  // server-side later via memory resource updates if needed.
   return {
     scope,
     directMemoriesSource: {
       directMemories: [
         {
           fact: encodeStoredFact(input.kind, input.classification, input.fact),
-          ...(expireTime === undefined ? {} : { expireTime }),
         },
       ],
     },

@@ -110,3 +110,4 @@ When you want durable fixes (not one-off chat advice):
 - Do not install Trunk-managed linters globally; versions live in `.trunk/trunk.yaml`
 - Commit **`pnpm-lock.yaml`**
 - After `pnpm install`, Trunk is under `node_modules/.bin`; pin is in `.trunk/trunk.yaml` (`cli.version`). Run `pnpm exec trunk install` if formatters/linters are missing
+- **Google Memory / STDIO locally:** set `GOOGLE_ACCESS_TOKEN` (e.g. `gcloud auth print-access-token`). The adapter’s metadata-server fallback only works on GCE/Cloud Run. Build workspace packages (`pnpm build`) before `mcp:stdio`. Memory Bank `memories:generate` DirectMemory rejects `expireTime` — do not put TTL on that payload.

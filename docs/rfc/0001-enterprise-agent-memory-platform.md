@@ -30,7 +30,7 @@ Enterprise agents that “remember” without a control plane leak secrets, mix 
 
 - Five packages only (see §5). Delete `packages/common`. No `apps/*`.
 - Personal-only memory with fail-closed writes and fail-open (structured unavailable) reads.
-- OAuth 2.1 resource server (`AUTH_MODE=local|jwks`) and Streamable HTTP MCP without `@modelcontextprotocol/sdk`.
+- OAuth 2.1 resource server (`AUTH_MODE=local|jwks`) and MCP over Streamable HTTP **or** STDIO without `@modelcontextprotocol/sdk`.
 - Deterministic secret scanner; prohibited classification never stored.
 - Server-side scope resolver. Agents pass contexts such as `personal` or `current_project`, never raw Memory Bank scope maps.
 - Live Google adapter tests skip without env; no `vi.mock` of I/O.
@@ -51,7 +51,7 @@ flowchart LR
   subgraph gatewayPkg ["@mnem-steward/gateway"]
     Hono[Hono Node process]
     REST[REST /v1]
-    MCP["POST /mcp"]
+    MCP["POST_/mcp_or_STDIO"]
     Comp[Composition root]
   end
   subgraph authPkg ["@mnem-steward/auth"]
@@ -357,14 +357,21 @@ Local only: `GET /.well-known/oauth-authorization-server` (RFC 8414) and `POST /
 
 ## 10. MCP
 
-Transport: Streamable HTTP, **POST JSON** at `/mcp`. Do not depend on `@modelcontextprotocol/sdk`.
+Transport (dual):
 
-Speak both:
+1. **Streamable HTTP** — **POST JSON** at `/mcp` (enterprise / remote clients; Cloud Run).
+2. **STDIO** — newline-delimited JSON-RPC on stdin/stdout via `node packages/gateway/dist/stdio-main.js` (or `pnpm --filter @mnem-steward/gateway mcp:stdio`) for individual IDE users.
+
+Both share the same tools, resources, and `MemoryService` composition. Do not depend on `@modelcontextprotocol/sdk`.
+
+**STDIO auth:** require `MNEM_ACCESS_TOKEN` (bearer JWT) verified with the same `TokenVerifier` as HTTP. Audit events must go to **stderr** (never stdout). `MEMORY_STORE=in-memory` is process-local to the STDIO subprocess; `MEMORY_STORE=google` shares the production Memory Bank with HTTP.
+
+**Protocol versions:**
 
 - **2025-06-18:** `initialize`, `notifications/initialized`, `ping`, `tools/list`, `tools/call`, `resources/list`, `resources/read`
-- **2026-07-28 header rules** when `MCP-Protocol-Version` is `2026-07-28`: `Mcp-Method` required on JSON-RPC requests; `Mcp-Name` required for `tools/call` (tool name) and `resources/read` (URI). Header/body mismatch → HTTP 400
+- **2026-07-28 header rules** apply to **HTTP only** when `MCP-Protocol-Version` is `2026-07-28`: `Mcp-Method` required on JSON-RPC requests; `Mcp-Name` required for `tools/call` (tool name) and `resources/read` (URI). Header/body mismatch → HTTP 400. STDIO negotiates version via `initialize.params.protocolVersion` only (no HTTP headers).
 
-Unsupported methods: JSON-RPC `-32601`. Auth failures: HTTP 401 with the same `WWW-Authenticate` as REST.
+Unsupported methods: JSON-RPC `-32601`. HTTP auth failures: HTTP 401 with the same `WWW-Authenticate` as REST. STDIO auth failures at startup exit non-zero; in-session unauthorized domain errors use JSON-RPC error `-32001`.
 
 Tools: `memory_search`, `memory_remember`, `memory_forget`, `memory_history`, `memory_profile_get` (see Appendix A).
 
@@ -454,7 +461,7 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 2. Five packages listed in §5; delete `packages/common`; root name `mnem-steward`; no `apps/*`
 3. Personal default; shared types exist; shared I/O denied until promotion
 4. OAuth 2.1 RS; `AUTH_MODE=local|jwks`; scopes in §9; principal from `iss`+`sub`
-5. MCP POST `/mcp`; 2025-06-18 methods + 2026-07-28 headers; no MCP SDK; tools/resources in §10
+5. MCP dual transport: POST `/mcp` (Streamable HTTP) and STDIO NDJSON; 2025-06-18 methods + HTTP-only 2026-07-28 headers; no MCP SDK; tools/resources in §10
 6. REST surface in §11
 7. Domain namespaces, kinds, classification, fail-closed secrets/prohibited, server-side `toMemoryBankScope`
 8. Fail-open reads / fail-closed writes; metadata-only audit
@@ -489,7 +496,7 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 4. Shared namespace and `current_project` writes/reads denied
 5. Secret-like payload and `prohibited-for-memory` writes denied
 6. Forced store failure on search returns structured `unavailable` (not empty ok)
-7. MCP `tools/list` includes the five tools; `resources/read` serves the three URIs; 2026-07-28 requests without `Mcp-Method` fail 400
+7. MCP `tools/list` includes the five tools; `resources/read` serves the three URIs; 2026-07-28 HTTP requests without `Mcp-Method` fail 400; STDIO `initialize` → `tools/list` → `tools/call` works with `MNEM_ACCESS_TOKEN`
 8. Retrieved memory responses include the untrusted-context notice
 9. Google adapter live tests skip without env; with env they hit v1beta1 and do not use `vi.mock`
 10. Coverage meets 80% lines/functions/statements and 70% branches; Dockerfile present; Terraform skeleton present
@@ -520,6 +527,7 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 | `GOOGLE_CLOUD_PROJECT`       | Google store / live tests | GCP project                              |
 | `GOOGLE_CLOUD_LOCATION`      | Google store / live tests | Regional location (not `global` in prod) |
 | `GOOGLE_REASONING_ENGINE_ID` | Google store / live tests | Standalone Memory Bank engine id         |
+| `MNEM_ACCESS_TOKEN`          | STDIO MCP                 | Bearer JWT verified like HTTP Authorization |
 
 ## Appendix C — Decision log
 
@@ -531,6 +539,7 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 | Identity          | `iss`+`sub` hash               | Email is not stable and is PII-heavy as a key        |
 | Auth              | OAuth 2.1 RS + PRM             | Fits MCP and REST; local HS256 for tests             |
 | MCP SDK           | None                           | Keep gateway thin; speak the wire                    |
+| MCP transport     | HTTP + STDIO (same tools)      | Remote enterprise + individual IDE `command` configs |
 | Store default     | In-memory                      | Deterministic tests without I/O mocks                |
 | Production store  | Memory Bank v1beta1            | Org is on Gemini Enterprise Agent Platform           |
 | Region            | eu/us not global               | CMEK / residency                                     |
@@ -542,5 +551,5 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 
 - Filenames kebab-case; types PascalCase (`memory-service.ts`, `MemoryStore`)
 - Core must remain runtime-dependency-free (Node built-ins only, including `crypto` for principal hashing)
-- Gateway composition root wires: auth verifier, `MemoryService`, store (`InMemoryMemoryStore` or Google adapter), audit sink, Hono routes
+- Gateway composition root wires: auth verifier, `MemoryService`, store (`InMemoryMemoryStore` or Google adapter), audit sink, Hono routes and optional STDIO entrypoint
 - Do not expand this RFC’s deferred list in Milestone 1 PRs
