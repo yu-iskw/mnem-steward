@@ -96,8 +96,14 @@ describe('metadata documents', () => {
     expect(protectedResourceMetadataPath(`${AUDIENCE}/`)).toBe(
       '/.well-known/oauth-protected-resource',
     );
+    expect(protectedResourceMetadataPath(`${AUDIENCE}/memory-reader/v1/mcp/?v=1`)).toBe(
+      '/.well-known/oauth-protected-resource/memory-reader/v1/mcp/?v=1',
+    );
     expect(protectedResourceMetadataUrl(`${AUDIENCE}/memory-steward/v1/mcp`)).toBe(
       `${AUDIENCE}/.well-known/oauth-protected-resource/memory-steward/v1/mcp`,
+    );
+    expect(protectedResourceMetadataUrl(`${AUDIENCE}/memory-steward/v1/mcp?x=y`)).toBe(
+      `${AUDIENCE}/.well-known/oauth-protected-resource/memory-steward/v1/mcp?x=y`,
     );
   });
 });

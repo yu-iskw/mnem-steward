@@ -100,7 +100,7 @@ function wellKnownParts(resourceUrl: string): { origin: string; pathSuffix: stri
   }
   return {
     origin: url.origin,
-    pathSuffix: url.pathname === '/' ? '' : url.pathname.replace(/\/$/u, ''),
+    pathSuffix: `${url.pathname === '/' ? '' : url.pathname}${url.search}`,
   };
 }
 
