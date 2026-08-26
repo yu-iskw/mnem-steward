@@ -15,7 +15,7 @@ export const PROTOCOL_2026 = '2026-07-28';
 const METHOD_TOOLS_CALL = 'tools/call';
 const METHOD_RESOURCES_READ = 'resources/read';
 
-export type McpHandleOutcome =
+type McpHandleOutcome =
   | { readonly type: 'notification' }
   | { readonly type: 'json'; readonly status: 200 | 400 | 500; readonly body: unknown }
   | {
@@ -62,10 +62,7 @@ export async function handleMcpRequest(input: {
   }
 }
 
-export function resolveProtocolVersion(
-  requested: string | undefined,
-  fallback = PROTOCOL_2025,
-): string {
+function resolveProtocolVersion(requested: string | undefined, fallback = PROTOCOL_2025): string {
   if (requested === PROTOCOL_2026 || requested === PROTOCOL_2025) {
     return requested;
   }

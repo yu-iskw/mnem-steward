@@ -18,7 +18,7 @@ export type GatewayDeps = {
   readonly verifier: TokenVerifier;
 };
 
-export type CreateGatewayDepsOptions = {
+type CreateGatewayDepsOptions = {
   readonly audit?: AuditSink;
 };
 

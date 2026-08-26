@@ -10,7 +10,7 @@ import { jsonRpcError, parseJsonRpc } from './mcp/json-rpc.js';
 import type { MemoryService, Principal } from '@mnem-steward/core';
 import type { Readable, Writable } from 'node:stream';
 
-export type StdioServerOptions = {
+type StdioServerOptions = {
   readonly memory: MemoryService;
   readonly principal: Principal;
   readonly input?: Readable;
