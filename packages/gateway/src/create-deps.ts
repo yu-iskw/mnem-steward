@@ -96,7 +96,7 @@ function createVerifier(env: GatewayEnv, mcpMounts: readonly McpProfileMount[]):
 }
 
 /** REST base audience plus each mounted MCP profile resource identifier. */
-export function tokenAudiences(
+function tokenAudiences(
   tokenAudience: string,
   mcpMounts: readonly McpProfileMount[],
 ): readonly string[] {
