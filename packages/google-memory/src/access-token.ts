@@ -147,12 +147,20 @@ function authClientProvider(
   getClient: () => Promise<AuthClient>,
 ): DescribedAccessTokenProvider {
   let clientPromise: Promise<AuthClient> | undefined;
+  async function resolveClient(): Promise<AuthClient> {
+    clientPromise ??= getClient();
+    try {
+      return await clientPromise;
+    } catch (error) {
+      clientPromise = undefined;
+      throw error;
+    }
+  }
   return {
     describeCredentials: () =>
       targetPrincipal === undefined ? { mode } : { mode, targetPrincipal },
     async getAccessToken(): Promise<string> {
-      clientPromise ??= getClient();
-      const client = await clientPromise;
+      const client = await resolveClient();
       const result = await client.getAccessToken();
       const token = typeof result === 'string' ? result : result.token;
       if (token === null || token === undefined || token.trim() === '') {

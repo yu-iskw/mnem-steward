@@ -42,6 +42,21 @@ describe('createGoogleAccessTokenProvider', () => {
     expect(getAccessToken).toHaveBeenCalledTimes(2);
   });
 
+  it('retries source client initialization after a transient failure', async () => {
+    const getAccessToken = vi.fn().mockResolvedValue({ token: 'ya29.adc' });
+    const getSourceClient = vi
+      .fn<() => Promise<AuthClient>>()
+      .mockRejectedValueOnce(new Error('temporary ADC error'))
+      .mockResolvedValue({ getAccessToken } as unknown as AuthClient);
+    const tokens = createGoogleAccessTokenProvider({
+      mode: 'adc',
+      getSourceClient,
+    });
+    await expect(tokens.getAccessToken()).rejects.toThrow(/temporary ADC error/);
+    await expect(tokens.getAccessToken()).resolves.toBe('ya29.adc');
+    expect(getSourceClient).toHaveBeenCalledTimes(2);
+  });
+
   it('impersonate mode requires a target SA', () => {
     expect(() => createGoogleAccessTokenProvider({ mode: 'impersonate' })).toThrow(
       /GOOGLE_IMPERSONATE_SERVICE_ACCOUNT/,
