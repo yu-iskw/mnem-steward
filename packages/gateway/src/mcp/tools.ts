@@ -62,7 +62,8 @@ const TOOL_SEARCH: McpToolDefinition = {
 const TOOL_REMEMBER: McpToolDefinition = {
   name: 'memory_remember',
   title: 'Remember personal fact',
-  description: 'Propose durable personal memory. Defaults to the personal namespace.',
+  description:
+    'Propose durable personal memory (defaults to the personal namespace). May create, update, or consolidate existing memories rather than only appending.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -76,7 +77,7 @@ const TOOL_REMEMBER: McpToolDefinition = {
   },
   annotations: {
     readOnlyHint: false,
-    destructiveHint: false,
+    destructiveHint: true,
     idempotentHint: false,
     openWorldHint: false,
   },

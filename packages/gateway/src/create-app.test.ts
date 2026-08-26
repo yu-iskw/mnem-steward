@@ -165,6 +165,26 @@ describe('gateway MCP profiles', () => {
     expect(listBody.result.tools[0]?.annotations.openWorldHint).toBe(false);
   });
 
+  it('lists memory_remember as destructive on memory-steward', async () => {
+    const app = testApp();
+    const token = await bearerToken(app);
+    const listed = await app.request('/memory-steward/v1/mcp', {
+      method: 'POST',
+      headers: mcpHeaders(token),
+      body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' }),
+    });
+    const listBody = (await listed.json()) as {
+      result: {
+        tools: {
+          name: string;
+          annotations: { destructiveHint?: boolean };
+        }[];
+      };
+    };
+    const remember = listBody.result.tools.find((tool) => tool.name === 'memory_remember');
+    expect(remember?.annotations.destructiveHint).toBe(true);
+  });
+
   it('rejects memory_forget on reader even with a full-scope token', async () => {
     const app = testApp();
     const token = await bearerToken(app);

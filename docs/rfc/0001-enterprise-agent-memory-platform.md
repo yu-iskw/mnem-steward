@@ -522,13 +522,13 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 
 ## Appendix A — MCP tool surface
 
-| Tool                 | Scopes                | Profiles        | Annotations (summary)                           | Arguments                                                   | Result                             |
-| -------------------- | --------------------- | --------------- | ----------------------------------------------- | ----------------------------------------------------------- | ---------------------------------- |
-| `memory_search`      | `memory.read`         | reader, steward | `readOnlyHint: true`, `openWorldHint: false`    | `context`, optional `text`, `kind`, `limit`                 | `SearchOutcome` + untrusted notice |
-| `memory_remember`    | `memory.write`        | steward         | additive write, `openWorldHint: false`          | `context`, `kind`, `classification`, `fact`, optional `ttl` | `MemoryRecord`                     |
-| `memory_forget`      | `memory.delete`       | governance      | `destructiveHint: true`, `openWorldHint: false` | `id`                                                        | `{ "deleted": true }`              |
-| `memory_history`     | `memory.history.read` | governance      | `readOnlyHint: true`, `openWorldHint: false`    | `id`                                                        | `HistoryOutcome`                   |
-| `memory_profile_get` | `memory.profile.read` | reader, steward | `readOnlyHint: true`, `openWorldHint: false`    | `schema` (default `employee-agent`)                         | `ProfileOutcome`                   |
+| Tool                 | Scopes                | Profiles        | Annotations (summary)                                                                     | Arguments                                                   | Result                             |
+| -------------------- | --------------------- | --------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------- |
+| `memory_search`      | `memory.read`         | reader, steward | `readOnlyHint: true`, `openWorldHint: false`                                              | `context`, optional `text`, `kind`, `limit`                 | `SearchOutcome` + untrusted notice |
+| `memory_remember`    | `memory.write`        | steward         | `destructiveHint: true` (may create/update/delete consolidations), `openWorldHint: false` | `context`, `kind`, `classification`, `fact`, optional `ttl` | `MemoryRecord`                     |
+| `memory_forget`      | `memory.delete`       | governance      | `destructiveHint: true`, `openWorldHint: false`                                           | `id`                                                        | `{ "deleted": true }`              |
+| `memory_history`     | `memory.history.read` | governance      | `readOnlyHint: true`, `openWorldHint: false`                                              | `id`                                                        | `HistoryOutcome`                   |
+| `memory_profile_get` | `memory.profile.read` | reader, steward | `readOnlyHint: true`, `openWorldHint: false`                                              | `schema` (default `employee-agent`)                         | `ProfileOutcome`                   |
 
 ## Appendix B — Environment variables
 
