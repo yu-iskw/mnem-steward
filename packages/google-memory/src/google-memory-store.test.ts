@@ -61,6 +61,31 @@ describe('google memory mapping', () => {
     expect(memoryBankBaseUrl('us-central1')).toBe('https://us-central1-aiplatform.googleapis.com');
   });
 
+  it('authorizes Memory Bank with the injected Google token only', async () => {
+    let authorization: string | undefined;
+    const store = createGoogleMemoryStore({
+      config: { project: 'p', location: 'eu', reasoningEngineId: 'eng' },
+      http: {
+        fetch(_url, init) {
+          authorization = new Headers(init?.headers).get('Authorization') ?? undefined;
+          return Promise.resolve(
+            json({
+              retrievedMemories: [],
+            }),
+          );
+        },
+      },
+      tokens: {
+        getAccessToken() {
+          return Promise.resolve('ya29.google-only');
+        },
+      },
+    });
+    await store.search({ principal: actor, context: 'personal', text: 'x' });
+    expect(authorization).toBe('Bearer ya29.google-only');
+    expect(authorization).not.toMatch(/eyJ/);
+  });
+
   it('returns unavailable when the injected HTTP client fails', async () => {
     const store = createGoogleMemoryStore({
       config: { project: 'p', location: 'eu', reasoningEngineId: 'eng' },

@@ -5,7 +5,11 @@ import { createGatewayDeps } from './create-deps.js';
 import { parseEnv } from './env.js';
 
 const env = parseEnv(process.env);
-const deps = createGatewayDeps(env);
+const deps = createGatewayDeps(env, {
+  logGoogleCredentials: (line) => {
+    console.info(line);
+  },
+});
 const app = createApp(deps);
 
 serve({ fetch: app.fetch, port: env.port });

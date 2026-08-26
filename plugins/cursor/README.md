@@ -36,7 +36,7 @@ curl -s http://127.0.0.1:8080/oauth/token \
 
 ## Local STDIO MCP (individual users)
 
-Same tools and store wiring as the HTTP gateway. Put a bearer JWT in `MNEM_ACCESS_TOKEN`.
+Same tools and store wiring as the HTTP gateway. Put a **MCP** bearer JWT in `MNEM_ACCESS_TOKEN` (not a Google access token). For `MEMORY_STORE=google`, set `GOOGLE_CREDENTIAL_MODE=adc` (or `env` / `impersonate`) separately.
 
 ```json
 {

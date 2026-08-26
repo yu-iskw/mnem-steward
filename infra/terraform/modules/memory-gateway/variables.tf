@@ -10,8 +10,8 @@ variable "location" {
 }
 
 variable "service_name" {
-  type        = string
-  default     = "mnem-steward-gateway"
+  type    = string
+  default = "mnem-steward-gateway"
 }
 
 variable "image" {
@@ -37,4 +37,16 @@ variable "memory_bank_location" {
   type        = string
   description = "Memory Bank location (eu, us, or a region). Distinct from the Cloud Run region."
   default     = "eu"
+}
+
+variable "memory_bank_service_account_id" {
+  type        = string
+  description = "Optional account_id for a dedicated Memory Bank executor SA created by this module. When set, the gateway uses GOOGLE_CREDENTIAL_MODE=impersonate."
+  default     = null
+}
+
+variable "memory_bank_service_account_email" {
+  type        = string
+  description = "Optional existing Memory Bank executor SA email to impersonate. Ignored when memory_bank_service_account_id creates a SA."
+  default     = null
 }

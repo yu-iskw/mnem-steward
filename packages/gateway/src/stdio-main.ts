@@ -11,6 +11,9 @@ async function main(): Promise<void> {
     audit: createStdoutAuditSink((line) => {
       process.stderr.write(`${line}\n`);
     }),
+    logGoogleCredentials: (line) => {
+      process.stderr.write(`${line}\n`);
+    },
   });
   const principal = await deps.verifier.verify(`Bearer ${token}`);
   await runStdioServer({

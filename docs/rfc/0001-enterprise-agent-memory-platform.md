@@ -357,7 +357,7 @@ RFC 9728 Protected Resource Metadata (path insertion per [RFC 9728 §3.1](https:
 
 Each PRM document’s `resource` field **must** equal the corresponding resource identifier. Profile PRM `scopes_supported` is narrowed to that profile’s scopes; tokens may still carry any of the scopes above.
 
-JWT `aud` accepted by the resource server is the set `{ AUTH_AUDIENCE, …mounted profile resource URLs }` so a client that requests a token for a profile PRM `resource` still verifies. Local `POST /oauth/token` continues to mint `aud=AUTH_AUDIENCE` (also accepted). Downstream Google Memory Bank uses a separate credential (ADC / WIF), not the caller token.
+JWT `aud` accepted by the resource server is the set `{ AUTH_AUDIENCE, …mounted profile resource URLs }` so a client that requests a token for a profile PRM `resource` still verifies. Local `POST /oauth/token` continues to mint `aud=AUTH_AUDIENCE` (also accepted). Downstream Google Memory Bank uses a **separate** credential via `GOOGLE_CREDENTIAL_MODE` (`env` | `adc` | `impersonate`) — never the MCP bearer (no token passthrough). See [ADR 0003](../adr/0003-two-leg-google-credentials.md).
 
 Local only: `GET /.well-known/oauth-authorization-server` (RFC 8414) and `POST /oauth/token` (HS256, `sub` + `iss` from local issuer, requested scopes). Production (`jwks`) does not expose those two routes.
 
@@ -382,7 +382,7 @@ Every tool includes `title` and `annotations` (`readOnlyHint`, and when not read
 
 Both transports share `handleMcpRequest` and `MemoryService` composition. Do not depend on `@modelcontextprotocol/sdk`.
 
-**STDIO auth:** require `MNEM_ACCESS_TOKEN` (bearer JWT) verified with the same `TokenVerifier` as HTTP. Audit events must go to **stderr** (never stdout). `MEMORY_STORE=in-memory` is process-local to the STDIO subprocess; `MEMORY_STORE=google` shares the production Memory Bank with HTTP.
+**STDIO auth:** require `MNEM_ACCESS_TOKEN` (bearer JWT) verified with the same `TokenVerifier` as HTTP. That JWT is MCP identity only — it is not a Google access token. For `MEMORY_STORE=google`, configure `GOOGLE_CREDENTIAL_MODE` (`adc` recommended locally; or `env` / `impersonate`). Audit events must go to **stderr** (never stdout). `MEMORY_STORE=in-memory` is process-local to the STDIO subprocess; `MEMORY_STORE=google` shares the production Memory Bank with HTTP.
 
 **Protocol versions:**
 
@@ -426,7 +426,7 @@ Do not expose Memory Bank instance admin, purge-all, or cross-principal operatio
 - Prefer **regional** locations (`eu`, `us`, or a specific region), **not** `global`, so CMEK and data-residency controls remain available
 - **Standalone** Memory Bank / reasoning-engine instance. Not created or deleted with any agent-runtime lifecycle
 - Adapter owns `GenerateMemories`, `RetrieveMemories`, CRUD, revisions, and `retrieveProfiles` mapping
-- `HttpClient` + `AccessTokenProvider` are injected (ADC or workload identity in Cloud Run; tests pass a stub client)
+- `HttpClient` + `AccessTokenProvider` are injected (`GOOGLE_CREDENTIAL_MODE=env|adc|impersonate`; tests pass a stub client)
 - Live tests: `skipIf` missing `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GOOGLE_REASONING_ENGINE_ID`
 
 Mapping sketch:
@@ -532,40 +532,44 @@ Protocol packages (`gateway`, `sdk`, `auth`, `core`) never import `@google-cloud
 
 ## Appendix B — Environment variables
 
-| Variable                     | Required                  | Purpose                                                             |
-| ---------------------------- | ------------------------- | ------------------------------------------------------------------- |
-| `PORT`                       | Cloud Run                 | Listen port                                                         |
-| `AUTH_MODE`                  | yes                       | `local` or `jwks`                                                   |
-| `PUBLIC_BASE_URL`            | yes                       | Resource identifier / PRM URLs                                      |
-| `AUTH_ISSUER`                | `jwks`                    | Expected `iss`                                                      |
-| `AUTH_AUDIENCE`              | `jwks`                    | Expected REST `aud`; MCP also accepts mounted profile resource URLs |
-| `AUTH_JWKS_URL`              | `jwks`                    | JWKS endpoint                                                       |
-| `LOCAL_JWT_SECRET`           | `local`                   | HS256 key                                                           |
-| `MEMORY_STORE`               | yes                       | `in-memory` or `google`                                             |
-| `MNEM_STEWARD_MCP_PROFILES`  | no                        | Comma-separated MCP profile ids to mount (default: all three)       |
-| `GOOGLE_CLOUD_PROJECT`       | Google store / live tests | GCP project                                                         |
-| `GOOGLE_CLOUD_LOCATION`      | Google store / live tests | Regional location (not `global` in prod)                            |
-| `GOOGLE_REASONING_ENGINE_ID` | Google store / live tests | Standalone Memory Bank engine id                                    |
-| `MNEM_ACCESS_TOKEN`          | STDIO MCP                 | Bearer JWT verified like HTTP Authorization                         |
+| Variable                             | Required                  | Purpose                                                                                   |
+| ------------------------------------ | ------------------------- | ----------------------------------------------------------------------------------------- |
+| `PORT`                               | Cloud Run                 | Listen port                                                                               |
+| `AUTH_MODE`                          | yes                       | `local` or `jwks`                                                                         |
+| `PUBLIC_BASE_URL`                    | yes                       | Resource identifier / PRM URLs                                                            |
+| `AUTH_ISSUER`                        | `jwks`                    | Expected `iss`                                                                            |
+| `AUTH_AUDIENCE`                      | `jwks`                    | Expected REST `aud`; MCP also accepts mounted profile resource URLs                       |
+| `AUTH_JWKS_URL`                      | `jwks`                    | JWKS endpoint                                                                             |
+| `LOCAL_JWT_SECRET`                   | `local`                   | HS256 key                                                                                 |
+| `MEMORY_STORE`                       | yes                       | `in-memory` or `google`                                                                   |
+| `MNEM_STEWARD_MCP_PROFILES`          | no                        | Comma-separated MCP profile ids to mount (default: all three)                             |
+| `GOOGLE_CLOUD_PROJECT`               | Google store / live tests | GCP project                                                                               |
+| `GOOGLE_CLOUD_LOCATION`              | Google store / live tests | Regional location (not `global` in prod)                                                  |
+| `GOOGLE_REASONING_ENGINE_ID`         | Google store / live tests | Standalone Memory Bank engine id                                                          |
+| `GOOGLE_CREDENTIAL_MODE`             | Google store              | `env` \| `adc` \| `impersonate` (default: `env` if `GOOGLE_ACCESS_TOKEN` set, else `adc`) |
+| `GOOGLE_ACCESS_TOKEN`                | `env` mode / live tests   | Static Google OAuth access token                                                          |
+| `GOOGLE_IMPERSONATE_SERVICE_ACCOUNT` | `impersonate` mode        | Target SA email; source identity needs Token Creator on it                                |
+| `MNEM_ACCESS_TOKEN`                  | STDIO MCP                 | Bearer JWT for the MCP RS (not a Google token)                                            |
 
 ## Appendix C — Decision log
 
-| Decision          | Choice                         | Why                                                  |
-| ----------------- | ------------------------------ | ---------------------------------------------------- |
-| Who owns policy?  | Company control plane          | Vendor store is not an RS, MCP server, or classifier |
-| Default namespace | Personal                       | Least surprise; shared memory is a promotion problem |
-| SoR               | Not memory                     | Derived facts; outages must surface                  |
-| Identity          | `iss`+`sub` hash               | Email is not stable and is PII-heavy as a key        |
-| Auth              | OAuth 2.1 RS + PRM             | Fits MCP and REST; local HS256 for tests             |
-| MCP SDK           | None                           | Keep gateway thin; speak the wire                    |
-| MCP transport     | HTTP + STDIO (same tools)      | Remote enterprise + individual IDE `command` configs |
-| Store default     | In-memory                      | Deterministic tests without I/O mocks                |
-| Production store  | Memory Bank v1beta1            | Org is on Gemini Enterprise Agent Platform           |
-| Region            | eu/us not global               | CMEK / residency                                     |
-| Scanner           | Deterministic                  | Fail closed without model nondeterminism             |
-| Packages          | Five, no `apps/*`, no `common` | One composition root: gateway                        |
-| Reads vs writes   | Fail-open / fail-closed        | Safety of recall vs safety of persistence            |
-| MCP catalogs      | Three capability profiles      | Discovery boundary separate from OAuth scopes        |
+| Decision           | Choice                          | Why                                                     |
+| ------------------ | ------------------------------- | ------------------------------------------------------- |
+| Who owns policy?   | Company control plane           | Vendor store is not an RS, MCP server, or classifier    |
+| Default namespace  | Personal                        | Least surprise; shared memory is a promotion problem    |
+| SoR                | Not memory                      | Derived facts; outages must surface                     |
+| Identity           | `iss`+`sub` hash                | Email is not stable and is PII-heavy as a key           |
+| Auth               | OAuth 2.1 RS + PRM              | Fits MCP and REST; local HS256 for tests                |
+| MCP SDK            | None                            | Keep gateway thin; speak the wire                       |
+| MCP transport      | HTTP + STDIO (same tools)       | Remote enterprise + individual IDE `command` configs    |
+| Store default      | In-memory                       | Deterministic tests without I/O mocks                   |
+| Production store   | Memory Bank v1beta1             | Org is on Gemini Enterprise Agent Platform              |
+| Region             | eu/us not global                | CMEK / residency                                        |
+| Scanner            | Deterministic                   | Fail closed without model nondeterminism                |
+| Packages           | Five, no `apps/*`, no `common`  | One composition root: gateway                           |
+| Reads vs writes    | Fail-open / fail-closed         | Safety of recall vs safety of persistence               |
+| MCP catalogs       | Three capability profiles       | Discovery boundary separate from OAuth scopes           |
+| Google credentials | Two-leg: MCP JWT ≠ Google token | ADC / env / SA impersonation; no passthrough (ADR 0003) |
 
 ## Appendix D — Implementation notes for agents
 
