@@ -13,6 +13,27 @@ describe('parseEnv', () => {
     expect(env.authMode).toBe('local');
     expect(env.publicBaseUrl).toBe('http://127.0.0.1:8080');
     expect(env.memoryStore).toBe('in-memory');
+    expect(env.mcpProfiles).toEqual(['memory-reader', 'memory-steward', 'memory-governance']);
+  });
+
+  it('parses MNEM_STEWARD_MCP_PROFILES and rejects unknown ids', () => {
+    const env = parseEnv({
+      PUBLIC_BASE_URL: 'http://127.0.0.1:8080',
+      AUTH_MODE: 'local',
+      MEMORY_STORE: 'in-memory',
+      LOCAL_JWT_SECRET: 'local-dev-secret-at-least-32-bytes!',
+      MNEM_STEWARD_MCP_PROFILES: 'memory-reader, memory-steward',
+    });
+    expect(env.mcpProfiles).toEqual(['memory-reader', 'memory-steward']);
+    expect(() =>
+      parseEnv({
+        PUBLIC_BASE_URL: 'http://127.0.0.1:8080',
+        AUTH_MODE: 'local',
+        MEMORY_STORE: 'in-memory',
+        LOCAL_JWT_SECRET: 'local-dev-secret-at-least-32-bytes!',
+        MNEM_STEWARD_MCP_PROFILES: 'memory-admin',
+      }),
+    ).toThrow(/Unknown MCP profile/);
   });
 
   it('refuses local auth on https without an override', () => {

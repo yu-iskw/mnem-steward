@@ -7,11 +7,13 @@ import { describe, expect, it } from 'vitest';
 import { createGatewayDeps } from './create-deps.js';
 import { parseEnv } from './env.js';
 import { handleMcpRequest, PROTOCOL_2025, PROTOCOL_2026 } from './mcp/handle-request.js';
+import { getMcpProfile } from './mcp/profiles.js';
 import { readAccessToken, runStdioServer } from './stdio-server.js';
 
 import type { Principal } from '@mnem-steward/core';
 
 const SECRET = 'local-dev-secret-at-least-32-bytes!';
+const STEWARD = getMcpProfile('memory-steward');
 
 function testEnv() {
   return parseEnv({
@@ -57,6 +59,7 @@ describe('handleMcpRequest', () => {
       memory: deps.memory,
       principal,
       protocolVersion: PROTOCOL_2025,
+      profile: STEWARD,
     });
     expect(initialized.type).toBe('json');
     if (initialized.type !== 'json') {
@@ -71,6 +74,7 @@ describe('handleMcpRequest', () => {
       memory: deps.memory,
       principal,
       protocolVersion: PROTOCOL_2025,
+      profile: STEWARD,
     });
     expect(listed.type).toBe('json');
     if (listed.type !== 'json') {
@@ -87,6 +91,7 @@ describe('handleMcpRequest', () => {
       memory: deps.memory,
       principal,
       protocolVersion: PROTOCOL_2026,
+      profile: STEWARD,
     });
     expect(outcome).toEqual({ type: 'notification' });
   });

@@ -4,6 +4,7 @@ import type { Hono } from 'hono';
 export type AppEnv = {
   Variables: {
     principal: Principal;
+    resourceMetadataUrl?: string;
   };
 };
 

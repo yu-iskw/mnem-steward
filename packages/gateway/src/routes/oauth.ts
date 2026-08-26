@@ -2,6 +2,7 @@ import {
   buildAuthorizationServerMetadata,
   buildProtectedResourceMetadata,
   issueLocalAccessToken,
+  protectedResourceMetadataPath,
 } from '@mnem-steward/auth';
 import { OAUTH_SCOPES, parseOAuthScopes } from '@mnem-steward/core';
 
@@ -16,15 +17,28 @@ type TokenBody = {
 
 export function mountOauth(app: MemoryApp, deps: GatewayDeps): void {
   const restResource = deps.env.publicBaseUrl;
-  const mcpResource = `${deps.env.publicBaseUrl}/mcp`;
   const authorizationServers = [deps.env.tokenIssuer];
 
-  app.get('/.well-known/oauth-protected-resource', (context) =>
-    context.json(buildProtectedResourceMetadata({ resource: restResource, authorizationServers })),
+  app.get(protectedResourceMetadataPath(restResource), (context) =>
+    context.json(
+      buildProtectedResourceMetadata({
+        resource: restResource,
+        authorizationServers,
+      }),
+    ),
   );
-  app.get('/.well-known/oauth-protected-resource/mcp', (context) =>
-    context.json(buildProtectedResourceMetadata({ resource: mcpResource, authorizationServers })),
-  );
+
+  for (const mount of deps.mcpMounts) {
+    app.get(mount.metadataPath, (context) =>
+      context.json(
+        buildProtectedResourceMetadata({
+          resource: mount.resource,
+          authorizationServers,
+          scopesSupported: mount.profile.scopesSupported,
+        }),
+      ),
+    );
+  }
 
   if (deps.env.authMode !== 'local' || deps.env.localJwtSecret === undefined) {
     return;

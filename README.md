@@ -44,7 +44,13 @@ curl -s http://127.0.0.1:8080/oauth/token \
   -d '{"grant_type":"client_credentials","sub":"dev","scope":"memory.read memory.write memory.delete memory.profile.read memory.history.read"}'
 ```
 
-MCP endpoint: `POST /mcp`. REST search: `POST /v1/memories:search`.
+MCP endpoints (choose by agent job):
+
+- Reader (default): `POST /memory-reader/v1/mcp`
+- Steward (remember): `POST /memory-steward/v1/mcp`
+- Governance (forget/history): `POST /memory-governance/v1/mcp`
+
+REST search: `POST /v1/memories:search`.
 
 ### Local STDIO MCP (individual IDE clients)
 

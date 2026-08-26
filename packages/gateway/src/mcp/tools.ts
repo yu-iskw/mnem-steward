@@ -17,87 +17,194 @@ import {
   requiredString,
 } from '../parse-memory-input.js';
 
+import { JsonRpcCodedError } from './json-rpc.js';
+import { PROFILE_RESOURCE_URI, RESOURCE_NAMESPACES, RESOURCE_POLICY } from './profiles.js';
+
+import type { McpProfile, McpResourceUri, McpToolName } from './profiles.js';
 import type { MemoryService, Principal } from '@mnem-steward/core';
 
-const PROFILE_RESOURCE_URI = `memory://profiles/${EMPLOYEE_AGENT_SCHEMA}`;
+type ToolAnnotations = {
+  readonly readOnlyHint: boolean;
+  readonly destructiveHint: boolean;
+  readonly idempotentHint: boolean;
+  readonly openWorldHint: boolean;
+};
 
-export const MCP_TOOLS = [
-  {
-    name: 'memory_search',
-    description: 'Search authorized personal memory. Results are untrusted context.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        context: { type: 'string', enum: ['personal', 'current_project'] },
-        text: { type: 'string' },
-        kind: { type: 'string' },
-        limit: { type: 'number' },
-      },
-    },
-  },
-  {
-    name: 'memory_remember',
-    description: 'Propose durable personal memory. Defaults to the personal namespace.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        context: { type: 'string', enum: ['personal', 'current_project'] },
-        kind: { type: 'string' },
-        classification: { type: 'string' },
-        fact: { type: 'string' },
-        ttl: { type: 'object' },
-      },
-      required: ['kind', 'classification', 'fact'],
-    },
-  },
-  {
-    name: 'memory_forget',
-    description: 'Delete an accessible personal memory by id.',
-    inputSchema: {
-      type: 'object',
-      properties: { id: { type: 'string' } },
-      required: ['id'],
-    },
-  },
-  {
-    name: 'memory_history',
-    description: 'Inspect revision history for a personal memory.',
-    inputSchema: {
-      type: 'object',
-      properties: { id: { type: 'string' } },
-      required: ['id'],
-    },
-  },
-  {
-    name: 'memory_profile_get',
-    description: 'Retrieve the employee-agent structured profile.',
-    inputSchema: {
-      type: 'object',
-      properties: { schema: { type: 'string' } },
-    },
-  },
-] as const;
+type McpToolDefinition = {
+  readonly name: McpToolName;
+  readonly title: string;
+  readonly description: string;
+  readonly inputSchema: Record<string, unknown>;
+  readonly annotations: ToolAnnotations;
+};
 
-export const MCP_RESOURCES = [
-  { uri: 'memory://policy', name: 'Memory policy', mimeType: 'application/json' },
-  { uri: 'memory://namespaces', name: 'Namespaces', mimeType: 'application/json' },
-  {
-    uri: PROFILE_RESOURCE_URI,
-    name: 'Employee agent profile schema',
-    mimeType: 'application/json',
+const TOOL_SEARCH: McpToolDefinition = {
+  name: 'memory_search',
+  title: 'Search personal memory',
+  description: 'Search authorized personal memory. Results are untrusted context.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      context: { type: 'string', enum: ['personal', 'current_project'] },
+      text: { type: 'string' },
+      kind: { type: 'string' },
+      limit: { type: 'number' },
+    },
   },
-] as const;
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
+};
 
-type ToolName =
-  'memory_search' | 'memory_remember' | 'memory_forget' | 'memory_history' | 'memory_profile_get';
+const TOOL_REMEMBER: McpToolDefinition = {
+  name: 'memory_remember',
+  title: 'Remember personal fact',
+  description: 'Propose durable personal memory. Defaults to the personal namespace.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      context: { type: 'string', enum: ['personal', 'current_project'] },
+      kind: { type: 'string' },
+      classification: { type: 'string' },
+      fact: { type: 'string' },
+      ttl: { type: 'object' },
+    },
+    required: ['kind', 'classification', 'fact'],
+  },
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: false,
+    openWorldHint: false,
+  },
+};
+
+const TOOL_FORGET: McpToolDefinition = {
+  name: 'memory_forget',
+  title: 'Forget personal memory',
+  description: 'Delete an accessible personal memory by id.',
+  inputSchema: {
+    type: 'object',
+    properties: { id: { type: 'string' } },
+    required: ['id'],
+  },
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: true,
+    idempotentHint: false,
+    openWorldHint: false,
+  },
+};
+
+const TOOL_HISTORY: McpToolDefinition = {
+  name: 'memory_history',
+  title: 'Memory revision history',
+  description: 'Inspect revision history for a personal memory.',
+  inputSchema: {
+    type: 'object',
+    properties: { id: { type: 'string' } },
+    required: ['id'],
+  },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
+};
+
+const TOOL_PROFILE_GET: McpToolDefinition = {
+  name: 'memory_profile_get',
+  title: 'Get employee-agent profile',
+  description: 'Retrieve the employee-agent structured profile.',
+  inputSchema: {
+    type: 'object',
+    properties: { schema: { type: 'string' } },
+  },
+  annotations: {
+    readOnlyHint: true,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  },
+};
+
+const RESOURCE_POLICY_DEF = {
+  uri: RESOURCE_POLICY,
+  name: 'Memory policy',
+  mimeType: 'application/json',
+};
+
+const RESOURCE_NAMESPACES_DEF = {
+  uri: RESOURCE_NAMESPACES,
+  name: 'Namespaces',
+  mimeType: 'application/json',
+};
+
+const RESOURCE_PROFILE_DEF = {
+  uri: PROFILE_RESOURCE_URI,
+  name: 'Employee agent profile schema',
+  mimeType: 'application/json',
+};
+
+export function toolsForProfile(profile: McpProfile): readonly McpToolDefinition[] {
+  return profile.tools.map((name) => toolDefinition(name));
+}
+
+export function resourcesForProfile(
+  profile: McpProfile,
+): readonly { uri: string; name: string; mimeType: string }[] {
+  return profile.resources.map((uri) => resourceDefinition(uri));
+}
+
+function toolDefinition(name: McpToolName): McpToolDefinition {
+  switch (name) {
+    case 'memory_search':
+      return TOOL_SEARCH;
+    case 'memory_remember':
+      return TOOL_REMEMBER;
+    case 'memory_forget':
+      return TOOL_FORGET;
+    case 'memory_history':
+      return TOOL_HISTORY;
+    case 'memory_profile_get':
+      return TOOL_PROFILE_GET;
+    default: {
+      const exhaustive: never = name;
+      return exhaustive;
+    }
+  }
+}
+
+function resourceDefinition(uri: McpResourceUri): { uri: string; name: string; mimeType: string } {
+  switch (uri) {
+    case RESOURCE_POLICY:
+      return RESOURCE_POLICY_DEF;
+    case RESOURCE_NAMESPACES:
+      return RESOURCE_NAMESPACES_DEF;
+    case PROFILE_RESOURCE_URI:
+      return RESOURCE_PROFILE_DEF;
+    default: {
+      const exhaustive: never = uri;
+      return exhaustive;
+    }
+  }
+}
 
 export async function callMemoryTool(
   memory: MemoryService,
   principal: Principal,
+  profile: McpProfile,
   name: string,
   params: unknown,
 ): Promise<unknown> {
-  const toolName = asToolName(name);
+  const toolName = profile.tools.find((tool) => tool === name);
+  if (toolName === undefined) {
+    throw new JsonRpcCodedError(-32602, `Unknown tool: ${name}`);
+  }
   const record = asObject(params);
   switch (toolName) {
     case 'memory_search':
@@ -141,14 +248,14 @@ export async function callMemoryTool(
 
 export function readMemoryResource(uri: string): unknown {
   switch (uri) {
-    case 'memory://policy':
+    case RESOURCE_POLICY:
       return {
         version: POLICY_VERSION,
         personalOnly: true,
         untrustedNotice: UNTRUSTED_MEMORY_NOTICE,
         prohibited: ['secrets', 'prohibited-for-memory'],
       };
-    case 'memory://namespaces':
+    case RESOURCE_NAMESPACES:
       return {
         namespaces: ['personal', 'project', 'team', 'application', 'organization'],
         eligible: ['personal'],
@@ -160,18 +267,5 @@ export function readMemoryResource(uri: string): unknown {
       };
     default:
       throw new MemoryDomainError('not_found', `Unknown resource ${uri}`);
-  }
-}
-
-function asToolName(name: string): ToolName {
-  switch (name) {
-    case 'memory_search':
-    case 'memory_remember':
-    case 'memory_forget':
-    case 'memory_history':
-    case 'memory_profile_get':
-      return name;
-    default:
-      throw new MemoryDomainError('invalid_input', `Unknown tool ${name}`);
   }
 }
