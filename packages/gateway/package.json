@@ -28,6 +28,6 @@
     "@mnem-steward/core": "workspace:*",
     "@mnem-steward/google-memory": "workspace:*",
     "@hono/node-server": "^1.19.9",
-    "hono": "^4.11.3"
+    "hono": "^4.13.5"
   }
 }
